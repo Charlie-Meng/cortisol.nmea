@@ -22,21 +22,39 @@ library(cortisol.nmea)
 
 This vignette shows the public, synthetic-only simulation workflow. It mirrors
 the structure of the Simulation V3 research scripts without depending on real
-participant data.
+participant data. For most package users, `run_simulation_study()` is the
+entry point: it creates latent curves, observed measurements, missing/sparse
+scenarios, and contamination scenarios in one reproducible object.
 
-## Step 1: Generate latent subjects
+## Step 1: Run a study
 
-```{r latent}
-psi <- simulate_nmea_parameters(n = 40, alpha = 1.2, seed = 101)
-latent <- simulate_latent_curves(psi, time_grid = seq(0, 18, by = 0.25))
+```{r study}
+study <- run_simulation_study(
+  n = 40,
+  alpha = 1.2,
+  missing_scenarios = c("S0_CleanObserved", "S4_SparseMorningMissing"),
+  contamination_scenarios = c("C1_Spike", "SC2_TimingError"),
+  seed = 101
+)
 
-dim(latent$curve_mat)
+names(study$scenarios)
 ```
+
+The returned object keeps the synthetic subject parameters, latent truth,
+observed clean data, scenario data sets, and configuration metadata together.
+
+```{r object-shape}
+str(study$config)
+dim(study$latent$curve_mat)
+head(study$observed)
+```
+
+## Step 2: Inspect latent curves
 
 ```{r latent-plot}
 matplot(
-  latent$time_grid,
-  t(latent$curve_mat[1:10, ]),
+  study$latent$time_grid,
+  t(study$latent$curve_mat[1:10, ]),
   type = "l",
   lty = 1,
   col = "#1f6fb255",
@@ -46,60 +64,48 @@ matplot(
 )
 ```
 
-## Step 2: Generate observed data
+## Step 3: Compare scenarios
 
-Observed data are created by sampling time templates and adding measurement
-noise. The example below uses a time-varying noise scale.
-
-```{r observed}
-time_templates <- list(
-  standard = c(0, 0.5, 1, 3, 6, 9, 12, 15),
-  early_dense = c(0, 0.33, 0.75, 1.5, 4, 8, 12, 16),
-  sparse = c(0, 0.75, 3, 8, 14)
+```{r scenario-counts}
+scenario_counts <- lapply(
+  study$scenarios,
+  function(dat) data.frame(
+    Rows = nrow(dat),
+    Subjects = length(unique(dat$Subject)),
+    ScenarioGroup = unique(dat$ScenarioGroup)[1]
+  )
 )
 
-sigma_fun <- function(time) {
-  0.6 + 0.15 * sqrt(pmax(time, 0)) + 0.35 * exp(-((time - 1) / 0.8)^2)
-}
-
-observed <- simulate_observed_data(
-  psi,
-  time_templates = time_templates,
-  sigma = sigma_fun,
-  seed = 102
-)
-
-head(observed)
+do.call(rbind, scenario_counts)
 ```
 
-## Step 3: Apply missingness and sparsity
-
-```{r missing}
-sparse <- apply_missing_scenario(
-  observed,
-  scenario = "S4_SparseMorningMissing",
-  seed = 103
-)
-
-table(table(sparse$Subject))
-```
-
-## Step 4: Apply contamination
-
-```{r contamination}
-contaminated <- apply_contamination_scenario(
-  sparse,
-  scenario = "SC2_TimingError",
-  seed = 104
-)
-
-table(contaminated$Contam_Class)
-```
-
-The contamination generator keeps audit columns, including the clean time and
-clean value. These columns are useful for simulation diagnostics and should not
-be available in real-data analysis unless ground truth is known by design.
+Scenario data sets contain audit columns when contamination has been applied.
+Those audit columns are useful for synthetic diagnostics because ground truth
+is known by construction.
 
 ```{r audit-columns}
-names(contaminated)
+names(study$scenarios$SC2_TimingError)
+table(study$scenarios$SC2_TimingError$Contam_Class)
+```
+
+## Step 4: Use lower-level pieces when needed
+
+The high-level workflow is a convenience layer. The lower-level generators
+remain available when a simulation needs custom templates or custom noise.
+
+```{r low-level}
+psi <- simulate_nmea_parameters(n = 8, alpha = 1.2, seed = 202)
+observed <- simulate_observed_data(
+  psi,
+  time_templates = list(
+    standard = c(0, 0.5, 1, 3, 6, 9, 12, 15),
+    sparse = c(0, 0.75, 3, 8, 14)
+  ),
+  sigma = function(time) 0.6 + 0.15 * sqrt(pmax(time, 0)),
+  seed = 203
+)
+
+sparse <- apply_missing_scenario(observed, "S4_SparseMorningMissing", seed = 204)
+contaminated <- apply_contamination_scenario(sparse, "SC2_TimingError", seed = 205)
+head(contaminated)
 ```

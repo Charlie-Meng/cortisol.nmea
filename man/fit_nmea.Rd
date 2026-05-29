@@ -14,6 +14,7 @@ fit_nmea(
   seed = 632545,
   units = list(x = "Hour", y = "nmol/L"),
   control = list(),
+  quiet = TRUE,
   ...
 )
 }
@@ -35,6 +36,8 @@ fit_nmea(
 \item{units}{Optional \code{saemixData()} units list.}
 
 \item{control}{Optional list merged into the default \code{saemix} control list.}
+
+\item{quiet}{Logical; if \code{TRUE}, suppresses verbose \code{saemix} console output.}
 
 \item{...}{Additional arguments passed to \code{saemix::saemixModel()}.}
 }

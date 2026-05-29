@@ -13,6 +13,7 @@
 #' @param seed Random seed passed to `saemix`.
 #' @param units Optional `saemixData()` units list.
 #' @param control Optional list merged into the default `saemix` control list.
+#' @param quiet Logical; if `TRUE`, suppresses verbose `saemix` console output.
 #' @param ... Additional arguments passed to `saemix::saemixModel()`.
 #'
 #' @return A list with subject-level parameters, fitted values, residuals, RSS,
@@ -27,6 +28,7 @@ fit_nmea <- function(data,
                      seed = 632545,
                      units = list(x = "Hour", y = "nmol/L"),
                      control = list(),
+                     quiet = TRUE,
                      ...) {
   if (!requireNamespace("saemix", quietly = TRUE)) {
     stop("Package `saemix` is required to fit NMEA models.", call. = FALSE)
@@ -40,24 +42,30 @@ fit_nmea <- function(data,
 
   y <- data[[response]]
   subject_id <- as.character(data[[id]])
-  model_data <- saemix::saemixData(
-    name.data = data,
-    name.group = id,
-    name.predictors = time,
-    name.response = response,
-    units = units
+  model_data <- .quiet_eval(
+    saemix::saemixData(
+      name.data = data,
+      name.group = id,
+      name.predictors = time,
+      name.response = response,
+      units = units
+    ),
+    quiet = quiet
   )
 
   psi2 <- c(psi0, alpha = alpha)
   covariance_model <- diag(5)
   covariance_model[5, 5] <- 0
 
-  model <- saemix::saemixModel(
-    model = .saemix_model_fun,
-    psi0 = psi2,
-    fixed.estim = c(1, 1, 1, 1, 0),
-    covariance.model = covariance_model,
-    ...
+  model <- .quiet_eval(
+    saemix::saemixModel(
+      model = .saemix_model_fun,
+      psi0 = psi2,
+      fixed.estim = c(1, 1, 1, 1, 0),
+      covariance.model = covariance_model,
+      ...
+    ),
+    quiet = quiet
   )
 
   default_control <- list(
@@ -70,15 +78,23 @@ fit_nmea <- function(data,
     save = FALSE,
     save.graphs = FALSE
   )
-  fit <- saemix::saemix(
-    model,
-    model_data,
-    control = utils::modifyList(default_control, control)
+  fit <- .quiet_eval(
+    saemix::saemix(
+      model,
+      model_data,
+      control = utils::modifyList(default_control, control)
+    ),
+    quiet = quiet
   )
 
   psi_est <- saemix::psi(fit)
   rownames(psi_est) <- unique(subject_id)
-  ypred <- as.numeric(stats::predict(fit))
+  ypred <- .predict_observed_rows(
+    data = data,
+    id = id,
+    time = time,
+    psi = psi_est
+  )
   residual <- y - ypred
   rss <- sum(residual^2, na.rm = TRUE)
 
@@ -116,6 +132,7 @@ fit_alpha_grid <- function(data,
                            response = "Cortisol",
                            psi0 = c(mu = 1, s = 1, c1 = 1, c0 = 0),
                            seed = 632545,
+                           quiet = TRUE,
                            ...) {
   fits <- vector("list", length(alpha_grid))
   names(fits) <- paste0("a=", alpha_grid)
@@ -132,6 +149,7 @@ fit_alpha_grid <- function(data,
         alpha = alpha_grid[i],
         psi0 = psi0,
         seed = seed,
+        quiet = quiet,
         ...
       ),
       error = function(e) e
@@ -165,4 +183,23 @@ fit_alpha_grid <- function(data,
 predict_nmea <- function(object, time_grid) {
   psi <- if (inherits(object, "nmea_fit")) object$psi else object
   model_eval(time_grid, psi)
+}
+
+.predict_observed_rows <- function(data, id, time, psi) {
+  psi <- .as_psi_matrix(psi, require_alpha = TRUE)
+  subject_id <- as.character(data[[id]])
+  pred <- rep(NA_real_, nrow(data))
+  common <- intersect(unique(subject_id), rownames(psi))
+  for (sid in common) {
+    idx <- which(subject_id == sid)
+    pred[idx] <- asym_sl_model(data[[time]][idx], psi[sid, , drop = FALSE])
+  }
+  pred
+}
+
+.quiet_eval <- function(expr, quiet = TRUE) {
+  if (!isTRUE(quiet)) return(expr)
+  out <- NULL
+  utils::capture.output(out <- expr)
+  out
 }

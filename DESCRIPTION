@@ -20,6 +20,7 @@ Imports:
     stats
 Suggests:
     knitr,
+    mgcv,
     rmarkdown,
     saemix,
     testthat (>= 3.0.0)

@@ -67,17 +67,26 @@ summary_features(psi)
 ```
 
 Model fitting is available with `fit_nmea()` when the optional `saemix`
-dependency is installed. In package vignettes we keep the fit call unevaluated
-because full SAEM fitting can take longer than a lightweight example should.
+dependency is installed. The example below uses only four synthetic subjects
+and short SAEM settings so the vignette stays lightweight.
 
-```{r fit-example, eval = FALSE}
+```{r fit-example, eval = requireNamespace("saemix", quietly = TRUE)}
+data(toy_cortisol)
+toy_small <- subset(toy_cortisol, Subject %in% unique(Subject)[1:4])
+
 fit <- fit_nmea(
-  toy_cortisol,
+  toy_small,
   id = "Subject",
   time = "Time",
   response = "Conc_Obs",
-  alpha = 1.2
+  alpha = 1.2,
+  control = list(
+    nbiter.saemix = c(20, 10),
+    nbiter.burn = 10,
+    nbiter.map = 10,
+    fim = FALSE
+  )
 )
 
-features <- summary_features(fit$psi)
+summary_features(fit$psi)
 ```

@@ -12,10 +12,12 @@ remain outside this repository.
 - NMEA curve evaluation with interpretable parameters: `mu`, `s`, `c1`, `c0`,
   and `alpha`.
 - Derived cortisol features: AUC, EML, PCL, AR, and DDC.
-- Optional model fitting through `saemix`.
+- Optional model fitting through `saemix`, including symmetric and alpha-grid
+  wrappers.
+- Optional smooth GAM baseline through `mgcv`.
 - Synthetic parameter, latent-curve, and observed-data simulation.
-- Simulation V3-style missingness, sparsity, contamination, and cleaning
-  utilities.
+- Simulation V3-style missingness, sparsity, contamination, cleaning, method
+  comparison, and benchmark table utilities.
 - A small fully synthetic toy data set for examples and vignettes.
 
 ## Installation
@@ -41,30 +43,32 @@ features
 ## Synthetic simulation example
 
 ```r
-psi <- simulate_nmea_parameters(n = 20, seed = 11)
-
-observed <- simulate_observed_data(
-  psi,
-  time_templates = list(
-    standard = c(0, 0.5, 1, 3, 6, 9, 12, 15),
-    sparse = c(0, 0.75, 3, 8, 14)
-  ),
-  sigma = function(time) 0.7 + 0.15 * sqrt(pmax(time, 0)),
-  seed = 12
+study <- run_simulation_study(
+  n = 20,
+  missing_scenarios = c("S0_CleanObserved", "S4_SparseMorningMissing"),
+  contamination_scenarios = c("C1_Spike", "SC2_TimingError"),
+  seed = 11
 )
 
-sparse <- apply_missing_scenario(
-  observed,
-  scenario = "S4_SparseMorningMissing",
-  seed = 13
+comparison <- run_method_comparison(
+  study,
+  methods = c("OracleTruth", "SymmetricTruth")
 )
 
-contaminated <- apply_contamination_scenario(
-  sparse,
-  scenario = "SC2_TimingError",
-  seed = 14
-)
+comparison$summary
+make_benchmark_tables(comparison$summary)
 ```
+
+Lower-level functions such as `simulate_observed_data()`,
+`apply_missing_scenario()`, and `apply_contamination_scenario()` remain
+available for custom simulation designs.
+
+## Package workflow status
+
+The public API now covers curve evaluation, feature extraction, optional NMEA
+fitting, synthetic Simulation V3-style data generation, method comparison, GAM
+baseline fitting, and benchmark table construction. The current public package
+intentionally excludes the private real-data analysis layer.
 
 ## Vignettes
 
