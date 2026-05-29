@@ -1,6 +1,36 @@
 .Rproj.user
 .Rhistory
 .RData
+.Ruserdata
 .httr-oauth
 .DS_Store
 .quarto
+
+# R build/check outputs
+*.tar.gz
+*.Rcheck/
+Meta/
+doc/
+
+# Private analysis outputs and large generated artifacts
+*.pdf
+*.pptx
+*.xlsx
+*.rda
+*.RData
+*.rds
+*.csv
+*.log
+*.pid
+
+# Keep approved package example data.
+!data/toy_cortisol.rda
+!inst/extdata/toy_cortisol.csv
+
+# Private/raw data should never enter the public package repository.
+private/
+raw-data/
+real-data/
+RealData*/
+PhaseI*/
+PhaseII*/

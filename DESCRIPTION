@@ -1,13 +1,28 @@
 Package: cortisol.nmea
-Title: What the Package Does (One Line, Title Case)
+Title: Nonlinear Mixed-Effects Modeling and Simulation for Cortisol Curves
 Version: 0.0.0.9000
-Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+Authors@R: c(
+    person("Xing", "Qiu", email = "xing_qiu@urmc.rochester.edu", role = c("aut", "cre")),
+    person("Yu", "Gu", role = "aut"),
+    person("Yuntian", "Meng", role = "aut")
+  )
+Description: Tools for fitting interpretable nonlinear mixed-effects models
+    to diurnal cortisol curves and for running synthetic simulation benchmarks
+    under sparse sampling, heteroscedastic noise, missingness, and contamination.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
+Depends:
+    R (>= 4.1.0)
+Imports:
+    stats
+Suggests:
+    knitr,
+    rmarkdown,
+    saemix,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder: knitr
 URL: https://github.com/Charlie-Meng/cortisol.nmea
 BugReports: https://github.com/Charlie-Meng/cortisol.nmea/issues

@@ -1,2 +1,11 @@
 ^cortisol\.nmea\.Rproj$
 ^\.Rproj\.user$
+^\.github$
+^data-raw$
+^README\.Rmd$
+^private$
+^raw-data$
+^real-data$
+^RealData.*$
+^PhaseI.*$
+^PhaseII.*$

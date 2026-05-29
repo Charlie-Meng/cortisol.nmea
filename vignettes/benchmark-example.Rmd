@@ -1,0 +1,68 @@
+---
+title: "Benchmark Metrics Example"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Benchmark Metrics Example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(cortisol.nmea)
+```
+
+Simulation benchmarks compare estimated curves against a known synthetic
+truth. This vignette uses a tiny example to demonstrate the metric layer.
+
+```{r truth}
+time_grid <- seq(0, 18, by = 0.25)
+psi_true <- simulate_nmea_parameters(n = 25, alpha = 1.25, seed = 201)
+truth <- model_eval(time_grid, psi_true)
+```
+
+We construct two simple candidate methods without running a full model fit:
+
+- `AlphaOnly`: the true parameters except for a misspecified alpha.
+- `NoisyOracle`: the true curves with mild independent prediction noise.
+
+```{r candidates}
+psi_alpha_only <- psi_true
+psi_alpha_only[, "alpha"] <- 1
+pred_alpha_only <- model_eval(time_grid, psi_alpha_only)
+
+set.seed(202)
+pred_noisy_oracle <- truth + matrix(
+  rnorm(length(truth), mean = 0, sd = 0.35),
+  nrow = nrow(truth),
+  dimnames = dimnames(truth)
+)
+```
+
+Subject-level metrics are produced with `curve_benchmark_metrics()`.
+
+```{r subject-metrics}
+m_alpha <- curve_benchmark_metrics(pred_alpha_only, truth, time_grid)
+m_oracle <- curve_benchmark_metrics(pred_noisy_oracle, truth, time_grid)
+
+head(m_alpha)
+```
+
+Aggregate metrics are produced with `summarize_curve_metrics()`.
+
+```{r aggregate}
+rbind(
+  cbind(Method = "AlphaOnly", summarize_curve_metrics(m_alpha)),
+  cbind(Method = "NoisyOracle", summarize_curve_metrics(m_oracle))
+)
+```
+
+These helpers are deliberately small. Larger benchmarking workflows can build
+on top of them by adding method labels, scenario labels, convergence metadata,
+coverage penalties, and tie-aware winner summaries.

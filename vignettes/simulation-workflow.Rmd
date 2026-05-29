@@ -1,0 +1,105 @@
+---
+title: "Synthetic Simulation Workflow"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Synthetic Simulation Workflow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4
+)
+```
+
+```{r setup}
+library(cortisol.nmea)
+```
+
+This vignette shows the public, synthetic-only simulation workflow. It mirrors
+the structure of the Simulation V3 research scripts without depending on real
+participant data.
+
+## Step 1: Generate latent subjects
+
+```{r latent}
+psi <- simulate_nmea_parameters(n = 40, alpha = 1.2, seed = 101)
+latent <- simulate_latent_curves(psi, time_grid = seq(0, 18, by = 0.25))
+
+dim(latent$curve_mat)
+```
+
+```{r latent-plot}
+matplot(
+  latent$time_grid,
+  t(latent$curve_mat[1:10, ]),
+  type = "l",
+  lty = 1,
+  col = "#1f6fb255",
+  xlab = "Hours since waking",
+  ylab = "Cortisol",
+  main = "First 10 synthetic latent curves"
+)
+```
+
+## Step 2: Generate observed data
+
+Observed data are created by sampling time templates and adding measurement
+noise. The example below uses a time-varying noise scale.
+
+```{r observed}
+time_templates <- list(
+  standard = c(0, 0.5, 1, 3, 6, 9, 12, 15),
+  early_dense = c(0, 0.33, 0.75, 1.5, 4, 8, 12, 16),
+  sparse = c(0, 0.75, 3, 8, 14)
+)
+
+sigma_fun <- function(time) {
+  0.6 + 0.15 * sqrt(pmax(time, 0)) + 0.35 * exp(-((time - 1) / 0.8)^2)
+}
+
+observed <- simulate_observed_data(
+  psi,
+  time_templates = time_templates,
+  sigma = sigma_fun,
+  seed = 102
+)
+
+head(observed)
+```
+
+## Step 3: Apply missingness and sparsity
+
+```{r missing}
+sparse <- apply_missing_scenario(
+  observed,
+  scenario = "S4_SparseMorningMissing",
+  seed = 103
+)
+
+table(table(sparse$Subject))
+```
+
+## Step 4: Apply contamination
+
+```{r contamination}
+contaminated <- apply_contamination_scenario(
+  sparse,
+  scenario = "SC2_TimingError",
+  seed = 104
+)
+
+table(contaminated$Contam_Class)
+```
+
+The contamination generator keeps audit columns, including the clean time and
+clean value. These columns are useful for simulation diagnostics and should not
+be available in real-data analysis unless ground truth is known by design.
+
+```{r audit-columns}
+names(contaminated)
+```
