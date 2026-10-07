@@ -1,0 +1,9 @@
+bibentry(
+  bibtype = "Manual",
+  title = "cortisol.nmea: Nonlinear Mixed-Effects Modeling and Simulation of Diurnal Cortisol Curves",
+  author = c(person("Yuntian", "Meng"), person("Yu", "Gu"), person("Xing", "Qiu")),
+  year = "2026",
+  note = paste("R package version", meta$Version,
+               "- Yuntian Meng and Yu Gu contributed equally."),
+  url = "https://github.com/Charlie-Meng/cortisol.nmea"
+)

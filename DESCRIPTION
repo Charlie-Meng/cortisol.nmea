@@ -1,30 +1,28 @@
 Package: cortisol.nmea
-Title: Nonlinear Mixed-Effects Modeling and Simulation for Cortisol Curves
+Title: Nonlinear Mixed-Effects Modeling and Simulation of Diurnal Cortisol Curves
 Version: 0.0.0.9000
 Authors@R: c(
-    person("Xing", "Qiu", email = "xing_qiu@urmc.rochester.edu", role = c("aut", "cre")),
-    person("Yu", "Gu", role = "aut"),
-    person("Yuntian", "Meng", role = "aut")
+    person("Yuntian", "Meng", email = "yuntian7103@gmail.com", role = c("aut", "cre", "cph")),
+    person("Yu", "Gu", role = c("aut", "cph")),
+    person("Xing", "Qiu", role = c("aut", "ths", "cph"))
   )
-Description: Tools for fitting interpretable nonlinear mixed-effects models
-    to diurnal cortisol curves and for running synthetic simulation benchmarks
-    under sparse sampling, heteroscedastic noise, missingness, and contamination.
+Description: Fits an asymmetric scaled-logistic nonlinear mixed-effects model
+    (NMEA) to sparse, irregularly sampled diurnal cortisol data, with an
+    optional outlier-removal and subject-screening workflow whose steps and
+    tuning parameters can be configured or switched off. Also provides a
+    simulation framework that generates realistic synthetic cortisol cohorts
+    from aggregate pregnancy-trimester summaries (no participant-level data are
+    shipped), adds configurable contamination, compares the NMEA workflow with
+    an uncleaned fit and a generalized additive mixed model, and reports curve
+    recovery, outlier detection, and subject retention.
 License: MIT + file LICENSE
-Encoding: UTF-8
-LazyData: true
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
-Depends:
-    R (>= 4.1.0)
-Imports:
-    stats
-Suggests:
-    knitr,
-    mgcv,
-    rmarkdown,
-    saemix,
-    testthat (>= 3.0.0)
-Config/testthat/edition: 3
-VignetteBuilder: knitr
 URL: https://github.com/Charlie-Meng/cortisol.nmea
 BugReports: https://github.com/Charlie-Meng/cortisol.nmea/issues
+Depends:
+    R (>= 4.1.0)
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2

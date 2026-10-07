@@ -1,86 +1,45 @@
 # cortisol.nmea
 
-`cortisol.nmea` provides tools for nonlinear mixed-effects modeling of
-diurnal cortisol curves and synthetic simulation benchmarks.
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/Charlie-Meng/cortisol.nmea/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Charlie-Meng/cortisol.nmea/actions/workflows/R-CMD-check.yaml)
+<!-- badges: end -->
 
-The package is designed as the public, reusable method layer for the cortisol
-NMEA project. Private real-data analysis scripts and participant data should
-remain outside this repository.
+> **Status:** under active rewrite on the `rewrite` branch. The API is not
+> stable yet; the first release will be 0.1.0.
 
-## What is included
+`cortisol.nmea` fits an asymmetric scaled-logistic nonlinear mixed-effects
+model (NMEA) to sparse, irregularly sampled diurnal cortisol data and provides
+a simulation framework for evaluating curve recovery under contamination.
 
-- NMEA curve evaluation with interpretable parameters: `mu`, `s`, `c1`, `c0`,
-  and `alpha`.
-- Derived cortisol features: AUC, EML, PCL, AR, and DDC.
-- Optional model fitting through `saemix`, including symmetric and alpha-grid
-  wrappers.
-- Optional smooth GAM baseline through `mgcv`.
-- Synthetic parameter, latent-curve, and observed-data simulation.
-- Simulation V3-style missingness, sparsity, contamination, cleaning, method
-  comparison, and benchmark table utilities.
-- A small fully synthetic toy data set for examples and vignettes.
+## Planned functionality
 
-## Installation
+- **Method layer:** bring your own cortisol data and run the NMEA workflow
+  (initial fit, residual-based outlier removal with a `k x sd` threshold,
+  minimum-observation and FVU screening, refit, asymmetry search). Every step
+  can be switched off and every tuning parameter can be changed.
+- **Simulation layer:** generate synthetic pregnancy-trimester cohorts from
+  aggregate summaries, add configurable contamination, compare methods,
+  evaluate recovery, detection and retention, and produce figures and reports.
 
-```r
-# install.packages("remotes")
-remotes::install_github("Charlie-Meng/cortisol.nmea")
-```
+## Comparison methods
 
-## Quick example
+The generalized additive mixed model comparator is an adaptation of the
+approach of Sánchez et al. (2012), *American Journal of Epidemiology*
+176(10):918-928, <doi:10.1093/aje/kws182>. It is not the original authors'
+code.
 
-```r
-library(cortisol.nmea)
+## Data policy
 
-psi <- simulate_nmea_parameters(n = 3, seed = 1)
-time_grid <- seq(0, 18, by = 0.25)
-curves <- model_eval(time_grid, psi)
+This repository is public. It contains **no participant-level data**. The
+simulation defaults are aggregate summaries only. Do not commit raw data,
+fitted participant-level results, workspaces, or derived private outputs.
+`tools/check_privacy.R` enforces this in continuous integration.
 
-features <- summary_features(psi)
-features
-```
+## Authors
 
-## Synthetic simulation example
+Yuntian Meng (maintainer), Yu Gu, and Xing Qiu. Yuntian Meng and Yu Gu
+contributed equally.
 
-```r
-study <- run_simulation_study(
-  n = 20,
-  missing_scenarios = c("S0_CleanObserved", "S4_SparseMorningMissing"),
-  contamination_scenarios = c("C1_Spike", "SC2_TimingError"),
-  seed = 11
-)
+## License
 
-comparison <- run_method_comparison(
-  study,
-  methods = c("OracleTruth", "SymmetricTruth")
-)
-
-comparison$summary
-make_benchmark_tables(comparison$summary)
-```
-
-Lower-level functions such as `simulate_observed_data()`,
-`apply_missing_scenario()`, and `apply_contamination_scenario()` remain
-available for custom simulation designs.
-
-## Package workflow status
-
-The public API now covers curve evaluation, feature extraction, optional NMEA
-fitting, synthetic Simulation V3-style data generation, method comparison, GAM
-baseline fitting, and benchmark table construction. The current public package
-intentionally excludes the private real-data analysis layer.
-
-## Vignettes
-
-- `vignette("nmea-model", package = "cortisol.nmea")`
-- `vignette("simulation-workflow", package = "cortisol.nmea")`
-- `vignette("benchmark-example", package = "cortisol.nmea")`
-
-## Private data policy
-
-This repository is public. Do not commit real raw data, private fitted
-workspaces, real-data `.rda/.rds` files, derived private CSV/XLSX outputs,
-PDFs, slide decks, or real-data analysis folders.
-
-The public package should use only synthetic examples, toy data, and functions
-that are safe to share.
+MIT

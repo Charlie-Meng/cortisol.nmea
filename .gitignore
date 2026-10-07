@@ -1,36 +1,31 @@
+# R and IDE
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
-.httr-oauth
 .DS_Store
-.quarto
-
-# R build/check outputs
-*.tar.gz
 *.Rcheck/
-Meta/
-doc/
+*.tar.gz
+docs/
+inst/doc/
 
-# Private analysis outputs and large generated artifacts
+# Privacy guard: data-like and output files are never tracked by default.
+# Add an explicit exception here only for synthetic files that have been reviewed.
+*.rda
+*.rds
+*.RData
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.sav
+*.dta
 *.pdf
 *.pptx
-*.xlsx
-*.rda
-*.RData
-*.rds
-*.csv
+*.docx
+*.png
+*.tiff
 *.log
-*.pid
-
-# Keep approved package example data.
-!data/toy_cortisol.rda
-!inst/extdata/toy_cortisol.csv
-
-# Private/raw data should never enter the public package repository.
 private/
 raw-data/
 real-data/
-RealData*/
-PhaseI*/
-PhaseII*/
