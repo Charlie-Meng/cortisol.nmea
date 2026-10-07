@@ -18,8 +18,9 @@ noise SD of the design), \code{"model"} (initial-fit residual SD) or \code{"mad"
 \item{method}{Name of a workflow method with an outlier step.}
 }
 \value{
-A list with \code{cohorts} (one row per case and \code{k}) and \code{summary}
-(mean FPR and FNR by trimester, scenario and \code{k}).
+A list with \code{cohorts} (one row per case and \code{k}; cases whose initial
+fit failed are kept with \code{valid = FALSE} and the error) and \code{summary}
+(planned and valid cohorts, mean FPR and FNR by trimester, scenario and \code{k}).
 }
 \description{
 Re-applies \verb{cutoff = k x sd} to the saved initial residuals of a workflow

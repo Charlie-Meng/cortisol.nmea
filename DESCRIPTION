@@ -21,6 +21,7 @@ BugReports: https://github.com/Charlie-Meng/cortisol.nmea/issues
 Depends:
     R (>= 4.1.0)
 Imports:
+    codetools,
     ggplot2 (>= 3.4.0),
     mgcv,
     nlme,

@@ -13,8 +13,13 @@
 #'   equal-weight pooled row across trimesters (Welch degrees of freedom). The
 #'   pooled row assumes independent cohorts across trimesters (see the `seeds`
 #'   argument of [sim_design()]) and is `NA` when a planned trimester has no
-#'   valid cohort, rather than silently re-weighting the others. A cohort in which any compared method failed is excluded from that
-#'   comparison and counted in `Valid` vs `Planned`.
+#'   valid cohort, rather than silently re-weighting the others. A cohort in
+#'   which any compared method failed is excluded from that comparison and
+#'   counted in `valid` vs `planned`; `complete` is `FALSE` for such rows, which
+#'   then describe the valid cohorts only rather than the full planned study.
+#'   The common subjects of `eval_summary()` (all compared methods) and of
+#'   `eval_paired()` (two methods) can differ, so the paired difference is not
+#'   in general the difference of the two summary means.
 #' * `eval_paired()`: paired cohort-level differences `method - comparator` on
 #'   the subjects common to the two methods; `Wins` counts cohorts where
 #'   `method` has the lower error.
@@ -108,7 +113,7 @@ eval_detection <- function(runs, method = "Full") {
   .check_outlier_method(runs, method)
   cohorts <- do.call(rbind, lapply(runs$cases, function(cs) {
     r <- cs$methods[[method]]
-    if (all(is.na(r$points$initial_residual))) {
+    if (all(is.na(r$points$initial_residual)) || anyNA(r$points$flagged)) {
       # The initial fit failed: no detection decision exists for this cohort.
       return(data.frame(case = cs$id, trimester = cs$trimester, seed = cs$seed, scenario = cs$scenario,
                         method = method, valid = FALSE, TP = NA, FP = NA, FN = NA, TN = NA,
@@ -236,6 +241,9 @@ eval_retention <- function(runs, method = "Full") {
   }
   out <- do.call(rbind, rows)
   names(out)[names(out) == "cohorts"] <- "valid"
+  # complete = every planned cohort is valid; otherwise the row describes the
+  # valid cohorts only and is not an estimate for the full planned study.
+  out$complete <- out$valid == out$planned
   rownames(out) <- NULL
   out
 }

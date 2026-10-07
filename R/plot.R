@@ -8,7 +8,9 @@
 #'   subjects.
 #' * `plot_subject()`: one subject's fitted and true curves with its
 #'   measurements classified by the workflow's outlier step: TP (contaminated,
-#'   flagged), FP (clean, flagged), FN (contaminated, missed), TN (clean, kept).
+#'   flagged), FP (clean, flagged), FN (contaminated, missed), TN (clean, kept);
+#'   measurements without a removal decision (no outlier step, or a failed
+#'   initial fit or rule) are shown as not evaluated.
 #' * `plot_recovery()`: cohort-level curve RMSE or curve-AUC error on common
 #'   subjects (small dots), with means and 95% Monte Carlo intervals.
 #' * `plot_detection()`: FPR and FNR of a workflow method by trimester.
@@ -38,8 +40,11 @@ NULL
   }
   c(base[methods], Truth = "#111111")
 }
-.point_colours <- c(TN = "#4B5563", TP = "#D55E00", FP = "#CC79A7", FN = "#E69F00")
-.point_shapes <- c(TN = 1, TP = 17, FP = 4, FN = 15)
+.point_colours <- c(TN = "#4B5563", TP = "#D55E00", FP = "#CC79A7", FN = "#E69F00", NE = "#9CA3AF")
+.point_shapes <- c(TN = 1, TP = 17, FP = 4, FN = 15, NE = 5)
+.point_labels <- c(TN = "TN: clean, kept", TP = "TP: contaminated, flagged",
+                   FP = "FP: clean, flagged", FN = "FN: contaminated, missed",
+                   NE = "not evaluated (no removal decision)")
 
 .theme_nmea <- function() {
   ggplot2::theme_classic(base_size = 9) +
@@ -73,12 +78,13 @@ plot_cohort_curves <- function(runs, trimester = runs$design$trimesters[1],
   .check_runs(runs)
   methods <- .check_methods(runs, methods)
   times <- runs$design$times
-  ind <- list(); avg <- list()
+  ind <- list(); avg <- list(); counts <- list()
   for (sc in scenarios) {
     cs <- .find_case(runs, trimester, seed, sc)
     for (m in methods) {
       cur <- cs$methods[[m]]$curves
       ok <- apply(cur, 1, function(x) all(is.finite(x)))
+      counts[[length(counts) + 1]] <- data.frame(scenario = sc, method = m, n = sum(ok))
       if (any(ok)) {
         ind[[length(ind) + 1]] <- cbind(.curve_long(cur[ok, , drop = FALSE], times, m), scenario = sc)
         avg[[length(avg) + 1]] <- data.frame(time = times, value = colMeans(cur[ok, , drop = FALSE]),
@@ -88,19 +94,24 @@ plot_cohort_curves <- function(runs, trimester = runs$design$trimesters[1],
     avg[[length(avg) + 1]] <- data.frame(time = times, value = colMeans(cs$truth_curves),
                                          method = "Truth", scenario = sc, n = nrow(cs$truth_curves))
   }
-  ind <- do.call(rbind, ind); avg <- do.call(rbind, avg)
+  # Methods without any fitted curve (e.g. failed fits) are reported as n = 0.
+  ind <- do.call(rbind, ind); avg <- do.call(rbind, avg); counts <- do.call(rbind, counts)
   lev <- c(methods, "Truth")
-  ind$method <- factor(ind$method, lev); avg$method <- factor(avg$method, lev)
-  counts <- stats::aggregate(n ~ scenario + method, avg[avg$method != "Truth", ], function(x) x[1])
+  avg$method <- factor(avg$method, lev)
   lab <- vapply(scenarios, function(sc) {
     z <- counts[counts$scenario == sc, ]
-    sprintf("%s (n: %s)", sc, paste(z$n[order(match(z$method, methods))], collapse = "/"))
+    sprintf("%s (n: %s)", sc, paste(z$n[match(methods, z$method)], collapse = "/"))
   }, character(1))
-  ind$scenario <- factor(ind$scenario, scenarios, lab); avg$scenario <- factor(avg$scenario, scenarios, lab)
-  p <- ggplot2::ggplot() +
-    ggplot2::geom_line(data = ind, ggplot2::aes(.data$time, .data$value, colour = .data$method,
-                                                group = interaction(.data$method, .data$subject)),
-                       alpha = 0.12, linewidth = 0.15) +
+  avg$scenario <- factor(avg$scenario, scenarios, lab)
+  p <- ggplot2::ggplot()
+  if (!is.null(ind)) {
+    ind$method <- factor(ind$method, lev)
+    ind$scenario <- factor(ind$scenario, scenarios, lab)
+    p <- p + ggplot2::geom_line(data = ind, ggplot2::aes(.data$time, .data$value, colour = .data$method,
+                                                         group = interaction(.data$method, .data$subject)),
+                                alpha = 0.12, linewidth = 0.15)
+  }
+  p <- p +
     ggplot2::geom_line(data = avg, ggplot2::aes(.data$time, .data$value, colour = .data$method,
                                                 linetype = .data$method), linewidth = 0.8) +
     ggplot2::facet_wrap(~scenario, nrow = 1) +
@@ -132,10 +143,22 @@ plot_subject <- function(runs, subject, trimester = runs$design$trimesters[1],
   cur$method <- factor(cur$method, c(methods, "Truth"))
   pts <- cs$points[cs$points$subject == subject, ]
   pts$time_observed <- cs$observed_time[match(pts$point_id, cs$points$point_id)]
+  # A measurement is classified only if the flag method made a removal decision
+  # for it; otherwise (no outlier step, failed initial fit or failed rule) it is
+  # shown as "not evaluated", never as kept.
   fl <- cs$methods[[flag_method]]$points
-  flagged <- if (is.null(fl)) rep(FALSE, nrow(pts)) else fl$flagged[match(pts$point_id, fl$point_id)]
-  pts$class <- factor(ifelse(pts$contaminated, ifelse(flagged, "TP", "FN"), ifelse(flagged, "FP", "TN")),
-                      names(.point_shapes))
+  if (is.null(fl)) {
+    evaluated <- rep(FALSE, nrow(pts))
+    flagged <- rep(NA, nrow(pts))
+  } else {
+    i <- match(pts$point_id, fl$point_id)
+    flagged <- fl$flagged[i]
+    evaluated <- !is.na(flagged) & !is.na(fl$initial_residual[i])
+  }
+  cls <- ifelse(pts$contaminated, ifelse(flagged %in% TRUE, "TP", "FN"), ifelse(flagged %in% TRUE, "FP", "TN"))
+  cls[!evaluated] <- "NE"
+  shown <- c(names(.point_shapes)[1:4], if (any(!evaluated)) "NE")
+  pts$class <- factor(cls, shown)
   outcome <- cs$methods[[flag_method]]$outcome[[subject]]
   line_keys <- c(methods, "Truth")
   # One colour scale for lines and points; the colour legend lists only the lines,
@@ -150,10 +173,9 @@ plot_subject <- function(runs, subject, trimester = runs$design$trimesters[1],
     ggplot2::scale_colour_manual(values = colours, breaks = line_keys, name = NULL) +
     ggplot2::scale_linetype_manual(values = c(stats::setNames(rep("solid", length(methods)), methods),
                                               Truth = "22"), breaks = line_keys, name = NULL) +
-    ggplot2::scale_shape_manual(values = .point_shapes, drop = FALSE, name = NULL,
-                                labels = c(TN = "TN: clean, kept", TP = "TP: contaminated, flagged",
-                                           FP = "FP: clean, flagged", FN = "FN: contaminated, missed")) +
-    ggplot2::guides(shape = ggplot2::guide_legend(override.aes = list(colour = unname(.point_colours)),
+    ggplot2::scale_shape_manual(values = .point_shapes[shown], drop = FALSE, name = NULL,
+                                labels = .point_labels[shown]) +
+    ggplot2::guides(shape = ggplot2::guide_legend(override.aes = list(colour = unname(.point_colours[shown])),
                                                   order = 2),
                     colour = ggplot2::guide_legend(order = 1), linetype = ggplot2::guide_legend(order = 1)) +
     ggplot2::scale_x_continuous(breaks = c(0, 6, 12, 18), limits = c(0, 18)) +

@@ -27,10 +27,11 @@ An object of class \code{nmea_result} with elements:
 \item \code{status}: \code{"ok"} or \code{"failure"}, and \code{error};
 \item \code{final}: the selected final \code{nmea_fit}, and \code{alpha}, \code{profile};
 \item \code{points}: one row per input measurement with the initial residual,
-the flag and the cutoff;
+the flag (\code{NA} when the outlier rule itself failed) and the cutoff;
 \item \code{subjects}: one row per input subject with its outcome (\code{retained},
 \code{excluded_min_obs}, \code{excluded_fvu}, \code{excluded_c1} or \code{not_fitted});
-\item \code{stages}: the initial and screening fits;
+\item \code{stages}: the initial and screening fits, and diagnostics of the outlier
+rule's own calibration (e.g. the iterative SD refit);
 \item \code{steps}, \code{control}.
 }
 }

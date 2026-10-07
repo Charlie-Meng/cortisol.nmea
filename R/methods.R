@@ -65,9 +65,26 @@ print.nmea_sim_method <- function(x, ...) {
 }
 
 # Fit one method to one simulated data set; returns a slim, serializable result.
+# Any unexpected error becomes a recorded failure of this method only, so the
+# other methods and cases of the study still run.
 .run_method <- function(method, sim, times) {
-  ids <- rownames(sim$truth$psi)
   started <- proc.time()[["elapsed"]]
+  out <- tryCatch(.run_method_inner(method, sim, times), error = function(e) {
+    ids <- rownames(sim$truth$psi)
+    list(status = "failure", error = paste("Unexpected error:", conditionMessage(e)),
+         curves = matrix(NA_real_, length(ids), length(times), dimnames = list(ids, NULL)),
+         outcome = stats::setNames(rep("not_fitted", length(ids)), ids),
+         points = if (method$type == "nmea") {
+           data.frame(point_id = sim$observed$point_id, initial_residual = NA_real_, flagged = NA)
+         },
+         cutoff = NA_real_, alpha = NA_real_, initial_sigma = NA_real_, diagnostics = NULL)
+  })
+  out$minutes <- (proc.time()[["elapsed"]] - started) / 60
+  out
+}
+
+.run_method_inner <- function(method, sim, times) {
+  ids <- rownames(sim$truth$psi)
   if (method$type == "gamm") {
     g <- fit_gamm_sanchez(sim$observed, times = times, k = method$k)
     curves <- g$curves[ids, , drop = FALSE]
@@ -77,7 +94,9 @@ print.nmea_sim_method <- function(x, ...) {
                 points = NULL, cutoff = NA_real_, alpha = NA_real_, initial_sigma = NA_real_,
                 diagnostics = list(warnings = g$warnings, basis_check = g$basis_check))
   } else {
-    r <- nmea_pipeline(sim$observed, steps = method$steps, control = method$control)
+    steps <- method$steps
+    steps$outlier <- .with_reference(steps$outlier, sim$reference)
+    r <- nmea_pipeline(sim$observed, steps = steps, control = method$control)
     ini <- r$stages$initial
     stage_diag <- function(f) {
       if (is.null(f)) return(NULL)
@@ -92,9 +111,9 @@ print.nmea_sim_method <- function(x, ...) {
                 initial_sigma = if (!is.null(ini) && ini$status == "ok") ini$sigma else NA_real_,
                 # Compact diagnostics: no saemix objects, but every warning, FIM
                 # availability and the full alpha profile are kept.
-                diagnostics = list(initial = stage_diag(ini), screening = stage_diag(r$stages$screening),
+                diagnostics = list(initial = stage_diag(ini), rule = r$stages$rule,
+                                   screening = stage_diag(r$stages$screening),
                                    alpha_profile = r$profile))
   }
-  out$minutes <- (proc.time()[["elapsed"]] - started) / 60
   out
 }
