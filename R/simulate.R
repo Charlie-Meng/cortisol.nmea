@@ -13,7 +13,11 @@
 #'   is taken at `protocol[j]` hours after waking plus a deviation drawn from
 #'   the quantile knots in row `j` of `deviation_knots` (clamped to the
 #'   2.5%-97.5% range); `patterns` gives the probability of each set of
-#'   collected samples (e.g. `"1234"`: the bedtime sample is missing).
+#'   collected samples (e.g. `"1234"`: the bedtime sample is missing). The
+#'   probabilities of four categories (all samples, bedtime missing, one other
+#'   sample missing, two missing) are estimated per trimester; which sample is
+#'   missing within the two rare categories is assumed uniform, because too few
+#'   people support an estimate.
 #' * `noise_time`, `noise_sigma`, `noise_sd`: the residual noise SD
 #'   \eqn{\sigma(t)}, linearly interpolated between knots and constant beyond
 #'   them, and its overall level.
@@ -89,8 +93,14 @@ sim_reference_modify <- function(reference, ...) {
   if (any(is.na(idx)) || any(idx < 1 | idx > length(ref$protocol))) {
     stop("Sampling patterns must list sample numbers present in `protocol`.", call. = FALSE)
   }
-  if (inherits(try(chol(ref$corr), silent = TRUE), "try-error")) {
-    stop("`corr` must be a positive definite correlation matrix.", call. = FALSE)
+  # A covariance matrix or an asymmetric matrix would pass chol() but distort
+  # the marginals: the copula needs standard normal margins.
+  r <- unname(ref$corr)
+  if (!is.numeric(r) || any(!is.finite(r)) || max(abs(r - t(r))) > 1e-8 ||
+      max(abs(diag(r) - 1)) > 1e-8 || any(abs(r) > 1 + 1e-8) ||
+      inherits(try(chol(r), silent = TRUE), "try-error")) {
+    stop("`corr` must be a symmetric positive definite correlation matrix with unit diagonal.",
+         call. = FALSE)
   }
   ref
 }
@@ -137,6 +147,13 @@ print.nmea_reference <- function(x, ...) {
 #'
 #' @param reference An `nmea_reference` from [sim_reference()].
 #' @param n Number of subjects.
+#' Each person's curve parameters, set of collected samples and sampling-time
+#' deviations are drawn independently of one another, so the generator
+#' reproduces their distributions but not any association between a person's
+#' curve and their sampling behaviour. Times are hours since the first
+#' collected sample, which is taken as waking; when the first protocol sample is
+#' missing, the next one becomes time 0.
+#'
 #' @param seed Integer seed.
 #' @param noise `"additive"` (default): \eqn{y = \max(floor, f(t) + \sigma(t) Z)},
 #'   which slightly biases low concentrations upward through the floor;
@@ -323,6 +340,15 @@ print.nmea_contamination <- function(x, ...) {
 #' U(4, 8) x \eqn{\sigma(t)}; `"D2"` 10% positive spikes of U(8, 12) x
 #' \eqn{\sigma(t)}.
 #'
+#' Contaminated values are bounded below by the reference floor, or by the clean
+#' value if it is already lower, so a negative or zero spike never raises a
+#' measurement.
+#'
+#' With the default seed, every scenario of a cohort draws its contaminated
+#' measurements from the same random stream, so the measurements contaminated
+#' in D1 are a subset of those in D2. Pass different seeds for independent
+#' contamination patterns.
+#'
 #' @param sim A `cortisol_sim` object (contamination always starts from its
 #'   clean values).
 #' @param scenario `"D0"`, `"D1"`, `"D2"`, or an object from [contamination()].
@@ -364,7 +390,10 @@ sim_contaminate <- function(sim, scenario = "D2", seed = sim$seed + 100) {
         sign <- switch(spec$direction, positive = rep(1, k), negative = rep(-1, k),
                        both = sample(c(-1, 1), k, replace = TRUE))
         delta <- sign * size * if (spec$scale == "sigma") pts$sigma[j] else 1
-        pts$y[j] <- pmax(ref$floor, pts$clean_y[j] + delta)
+        # Lower bound: the floor, or the clean value if that is already below it
+        # (possible with log-normal noise), so a zero or negative spike never
+        # raises a measurement. With additive noise this is just the floor.
+        pts$y[j] <- pmax(pmin(ref$floor, pts$clean_y[j]), pts$clean_y[j] + delta)
         pts$delta[j] <- pts$y[j] - pts$clean_y[j]
         pts$contamination_type[j] <- "spike"
       } else {

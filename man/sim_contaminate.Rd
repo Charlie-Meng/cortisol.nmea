@@ -27,6 +27,15 @@ so methods can be compared pairwise across scenarios.
 Predefined scenarios: \code{"D0"} none; \code{"D1"} 5\% positive spikes of
 U(4, 8) x \eqn{\sigma(t)}; \code{"D2"} 10\% positive spikes of U(8, 12) x
 \eqn{\sigma(t)}.
+
+Contaminated values are bounded below by the reference floor, or by the clean
+value if it is already lower, so a negative or zero spike never raises a
+measurement.
+
+With the default seed, every scenario of a cohort draws its contaminated
+measurements from the same random stream, so the measurements contaminated
+in D1 are a subset of those in D2. Pass different seeds for independent
+contamination patterns.
 }
 \examples{
 base <- sim_cohort(sim_reference("T2"), n = 10, seed = 1)
