@@ -53,7 +53,11 @@ fit_gamm_sanchez <- function(data, times = seq(0, 18, by = 0.1), k = 5) {
 }
 
 .fit_gamm_sanchez <- function(data, ids, times, k) {
-  dat <- data.frame(subject = factor(data$subject, levels = ids),
+  # nlme labels nested random effects "outer/inner", so user identifiers (which
+  # may contain "/" or other separators) are replaced by safe internal labels in
+  # the same order; the factor coding, and hence the fit, is unchanged.
+  internal <- sprintf("s%07d", seq_along(ids))
+  dat <- data.frame(subject = factor(internal[match(data$subject, ids)], levels = internal),
                     x = sqrt(data$time / 24), z = log1p(data$y))
   first <- mgcv::gamm(z ~ s(x, k = k), data = dat, method = "REML")
   dat$Xr <- first$lme$data$Xr
@@ -68,9 +72,11 @@ fit_gamm_sanchez <- function(data, times = seq(0, 18, by = 0.1), k = 5) {
   re <- fit$lme$coefficients$random
   linear <- re[[2]]
   curved <- re[[3]]
-  rownames(linear) <- sub("^.*/", "", rownames(linear))
-  rownames(curved) <- sub("^.*/", "", rownames(curved))
-  if (!setequal(rownames(linear), ids) || !setequal(rownames(curved), ids)) {
+  to_id <- function(labels) ids[match(sub("^.*/", "", labels), internal)]
+  rownames(linear) <- to_id(rownames(linear))
+  rownames(curved) <- to_id(rownames(curved))
+  if (anyNA(rownames(linear)) || anyNA(rownames(curved)) ||
+      !setequal(rownames(linear), ids) || !setequal(rownames(curved), ids)) {
     stop("Subject random effects could not be matched.", call. = FALSE)
   }
   sigma <- fit$lme$sigma

@@ -23,8 +23,9 @@ selected one.}
 }
 \value{
 An object of class \code{nmea_alpha_fit} with \code{status}, \code{alpha}
-(selected), \code{best} (an \code{nmea_fit}), \code{profile} (alpha, status and RSS of
-every candidate) and, optionally, \code{fits}.
+(selected), \code{best} (an \code{nmea_fit}), \code{profile} (one row per candidate with
+alpha, status, RSS, FIM availability, warnings, error and elapsed time,
+kept even when \code{keep_fits = FALSE}) and, optionally, \code{fits}.
 }
 \description{
 Fits \code{\link[=nmea_fit]{nmea_fit()}} for each \code{alpha} and selects the value with the smallest

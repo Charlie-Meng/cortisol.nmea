@@ -163,8 +163,9 @@ coef.nmea_fit <- function(object, ...) {
 #'   selected one.
 #'
 #' @return An object of class `nmea_alpha_fit` with `status`, `alpha`
-#'   (selected), `best` (an `nmea_fit`), `profile` (alpha, status and RSS of
-#'   every candidate) and, optionally, `fits`.
+#'   (selected), `best` (an `nmea_fit`), `profile` (one row per candidate with
+#'   alpha, status, RSS, FIM availability, warnings, error and elapsed time,
+#'   kept even when `keep_fits = FALSE`) and, optionally, `fits`.
 #' @export
 nmea_fit_alpha <- function(data, alpha_grid = seq(0.8, 1.5, by = 0.1),
                            control = nmea_control(), keep_fits = FALSE) {
@@ -176,9 +177,20 @@ nmea_fit_alpha <- function(data, alpha_grid = seq(0.8, 1.5, by = 0.1),
   fits <- lapply(alpha_grid, function(a) nmea_fit(data, alpha = a, control = control))
   status <- vapply(fits, `[[`, character(1), "status")
   rss <- vapply(fits, function(f) if (f$status == "ok") f$rss else Inf, numeric(1))
-  profile <- data.frame(alpha = alpha_grid, status = status, rss = rss)
+  # Compact diagnostics for every candidate, kept even when keep_fits = FALSE.
+  profile <- data.frame(
+    alpha = alpha_grid, status = status, rss = rss,
+    fim_ok = vapply(fits, function(f) if (f$status == "ok") f$fim_ok else NA, logical(1)),
+    n_warnings = vapply(fits, function(f) length(f$warnings), integer(1)),
+    warnings = vapply(fits, function(f) paste(f$warnings, collapse = " | "), character(1)),
+    error = vapply(fits, function(f) if (is.null(f$error)) NA_character_ else f$error, character(1)),
+    elapsed = vapply(fits, function(f) f$elapsed, numeric(1)),
+    stringsAsFactors = FALSE
+  )
   if (!any(is.finite(rss))) {
-    return(structure(list(status = "failure", error = "All alpha fits failed",
+    reasons <- unique(stats::na.omit(profile$error))
+    return(structure(list(status = "failure",
+                          error = paste("All alpha fits failed:", paste(reasons, collapse = " | ")),
                           profile = profile, fits = if (keep_fits) fits),
                      class = "nmea_alpha_fit"))
   }
@@ -192,6 +204,6 @@ nmea_fit_alpha <- function(data, alpha_grid = seq(0.8, 1.5, by = 0.1),
 print.nmea_alpha_fit <- function(x, ...) {
   cat(sprintf("<nmea_alpha_fit> %s; selected alpha = %s\n", x$status,
               if (x$status == "ok") format(x$alpha) else "none"))
-  print(x$profile, row.names = FALSE)
+  print(x$profile[, c("alpha", "status", "rss", "fim_ok", "n_warnings")], row.names = FALSE)
   invisible(x)
 }

@@ -24,6 +24,11 @@
   until the `k x sd` default is chosen.
 * `fit_gamm_sanchez()` provides the GAMM comparator adapted from Sánchez et al.
   (2012).
+* Subject identifiers are always matched as identifiers: `predict()` no longer
+  treats numeric identifiers as row positions, and the GAMM comparator accepts
+  identifiers containing `/` (cross-review of PR #1).
+* `nmea_fit_alpha()` keeps compact diagnostics (FIM availability, warnings,
+  error, time) for every alpha candidate.
 
 ## Simulation layer
 
