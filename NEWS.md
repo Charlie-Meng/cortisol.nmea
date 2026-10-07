@@ -41,3 +41,8 @@
   custom `contamination()` (spikes in either direction, absolute or
   noise-scaled, optional time window, or timing errors); `sim_thin()` adds
   optional missingness and sparsity.
+* Cross-review of PR #2: contamination never raises a measurement through the
+  floor (relevant to log-normal noise and custom floors); `corr` must be a
+  symmetric correlation matrix with unit diagonal; the split of rare
+  missingness patterns is a documented uniform assumption instead of an
+  estimate from fewer than 20 people.
