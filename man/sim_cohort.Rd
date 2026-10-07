@@ -9,7 +9,13 @@ sim_cohort(reference, n, seed, noise = c("additive", "lognormal"))
 \arguments{
 \item{reference}{An \code{nmea_reference} from \code{\link[=sim_reference]{sim_reference()}}.}
 
-\item{n}{Number of subjects.}
+\item{n}{Number of subjects.
+Each person's curve parameters, set of collected samples and sampling-time
+deviations are drawn independently of one another, so the generator
+reproduces their distributions but not any association between a person's
+curve and their sampling behaviour. Times are hours since the first
+collected sample, which is taken as waking; when the first protocol sample is
+missing, the next one becomes time 0.}
 
 \item{seed}{Integer seed.}
 

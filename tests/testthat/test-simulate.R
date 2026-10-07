@@ -83,3 +83,53 @@ test_that("sim_thin keeps at least min_obs per subject", {
   sp <- sim_thin(base, keep = 3)
   expect_true(all(table(sp$observed$subject) == 3))
 })
+
+test_that("contamination never raises a value through the floor (cross-review of PR #2)", {
+  ref <- sim_reference_modify(sim_reference("T2"), floor = 1)
+  base <- sim_cohort(ref, n = 200, seed = 77, noise = "lognormal")
+  below <- base$truth$points$clean_y < 1
+  expect_true(any(below))
+  neg <- sim_contaminate(base, contamination(1, c(1, 1), scale = "absolute", direction = "negative"))
+  expect_true(all(neg$truth$points$y <= neg$truth$points$clean_y + 1e-12))
+  zero <- sim_contaminate(base, contamination(1, c(0, 0), scale = "absolute"))
+  expect_identical(zero$observed$y, base$observed$y)
+  expect_false(any(zero$truth$points$contaminated))
+  both <- sim_contaminate(base, contamination(1, c(0.5, 2), scale = "absolute", direction = "both"))
+  p <- both$truth$points
+  expect_true(all(p$y[p$delta < 0] < p$clean_y[p$delta < 0]))
+  # Additive noise: the default floor behaviour is unchanged.
+  add <- sim_contaminate(sim_cohort(sim_reference("T2"), n = 50, seed = 1),
+                         contamination(1, c(50, 50), scale = "absolute", direction = "negative"))
+  expect_true(all(add$observed$y == 0.01))
+})
+
+test_that("invalid correlation matrices are rejected", {
+  ref <- sim_reference("T2")
+  expect_error(sim_reference_modify(ref, corr = diag(c(4, 1, 1, 1))), "unit diagonal")
+  asym <- ref$corr
+  asym[2, 1] <- asym[2, 1] + 0.1
+  expect_error(sim_reference_modify(ref, corr = asym), "symmetric")
+  bad <- ref$corr
+  bad[1, 2] <- bad[2, 1] <- NA
+  expect_error(sim_reference_modify(ref, corr = bad), "correlation")
+  ok <- diag(4)
+  ok[1, 2] <- ok[2, 1] <- 0.3
+  expect_s3_class(sim_reference_modify(ref, corr = ok), "nmea_reference")
+})
+
+test_that("rare missingness patterns use the documented uniform split", {
+  for (tri in c("T1", "T2", "T3")) {
+    p <- sim_reference(tri)$patterns
+    middle <- p[c("1345", "1245", "1235")]
+    expect_equal(unname(middle), rep(middle[[1]], 3), tolerance = 1e-5)
+  }
+  two <- sim_reference("T2")$patterns[c("134", "124", "123")]
+  expect_equal(unname(two), rep(two[[1]], 3), tolerance = 1e-5)
+})
+
+test_that("with the default seed, D1 contaminates a subset of D2's measurements", {
+  base <- sim_cohort(sim_reference("T2"), n = 100, seed = 5)
+  d1 <- sim_contaminate(base, "D1")$truth$points$contaminated
+  d2 <- sim_contaminate(base, "D2")$truth$points$contaminated
+  expect_true(all(d2[d1]))
+})

@@ -28,7 +28,11 @@ beyond the outer knots are extrapolated linearly.
 is taken at \code{protocol[j]} hours after waking plus a deviation drawn from
 the quantile knots in row \code{j} of \code{deviation_knots} (clamped to the
 2.5\%-97.5\% range); \code{patterns} gives the probability of each set of
-collected samples (e.g. \code{"1234"}: the bedtime sample is missing).
+collected samples (e.g. \code{"1234"}: the bedtime sample is missing). The
+probabilities of four categories (all samples, bedtime missing, one other
+sample missing, two missing) are estimated per trimester; which sample is
+missing within the two rare categories is assumed uniform, because too few
+people support an estimate.
 \item \code{noise_time}, \code{noise_sigma}, \code{noise_sd}: the residual noise SD
 \eqn{\sigma(t)}, linearly interpolated between knots and constant beyond
 them, and its overall level.
