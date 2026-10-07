@@ -20,6 +20,12 @@ URL: https://github.com/Charlie-Meng/cortisol.nmea
 BugReports: https://github.com/Charlie-Meng/cortisol.nmea/issues
 Depends:
     R (>= 4.1.0)
+Imports:
+    mgcv,
+    nlme,
+    saemix (>= 3.0),
+    stats,
+    utils
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
