@@ -19,8 +19,11 @@ sim_design(
 
 \item{n}{Subjects per cohort.}
 
-\item{seeds}{Either a named list with one integer vector per trimester, or
-an integer vector used for every trimester.}
+\item{seeds}{Either a named list with one integer vector of seeds per
+trimester (used as given), or an integer vector. A vector is expanded into
+distinct trimester-specific seeds \code{3 * seed + i} for the \code{i}-th of
+T1/T2/T3, so cohorts of different trimesters are independent, as assumed
+by the pooled Monte Carlo intervals of \code{\link[=eval_summary]{eval_summary()}}.}
 
 \item{scenarios}{Scenario names (\code{"D0"}, \code{"D1"}, \code{"D2"}) and/or a named
 list of \code{\link[=contamination]{contamination()}} objects.}

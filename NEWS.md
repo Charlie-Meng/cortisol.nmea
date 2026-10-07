@@ -19,9 +19,12 @@
 * `nmea_pipeline()` runs the configurable workflow (initial fit, outlier
   removal, minimum observations, FVU and `c1 > 0` screening, asymmetry search);
   `nmea_steps()` switches steps on or off and `nmea_steps_direct()` gives the
-  uncleaned fit. Outlier rules: `outlier_fixed()`, `outlier_sd()`,
-  `outlier_custom()`. The default rule is provisionally `outlier_fixed(6)`
-  until the `k x sd` default is chosen.
+  uncleaned fit. Outlier rules: `outlier_default()`, `outlier_fixed()`,
+  `outlier_sd()` (`sd` = number, `"reference"`, `"iterative"`, `"model"`,
+  `"mad"` or a function) and `outlier_custom()`. The default rule uses
+  `3.5 x` the trimester reference noise SD for T1/T2/T3 data and otherwise
+  `3 x` an iterative SD estimate; `outlier_fixed(6)` reproduces the original
+  analysis.
 * `fit_gamm_sanchez()` provides the GAMM comparator adapted from Sánchez et al.
   (2012).
 * Subject identifiers are always matched as identifiers: `predict()` no longer

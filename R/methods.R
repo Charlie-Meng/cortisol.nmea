@@ -74,16 +74,26 @@ print.nmea_sim_method <- function(x, ...) {
     out <- list(status = g$status, error = g$error, curves = curves,
                 outcome = stats::setNames(ifelse(apply(curves, 1, function(x) all(is.finite(x))),
                                           "retained", "not_fitted"), ids),
-                points = NULL, cutoff = NA_real_, alpha = NA_real_, initial_sigma = NA_real_)
+                points = NULL, cutoff = NA_real_, alpha = NA_real_, initial_sigma = NA_real_,
+                diagnostics = list(warnings = g$warnings, basis_check = g$basis_check))
   } else {
     r <- nmea_pipeline(sim$observed, steps = method$steps, control = method$control)
     ini <- r$stages$initial
+    stage_diag <- function(f) {
+      if (is.null(f)) return(NULL)
+      list(status = f$status, error = f$error, fim_ok = if (f$status == "ok") f$fim_ok else NA,
+           warnings = f$warnings, elapsed = f$elapsed)
+    }
     out <- list(status = r$status, error = r$error,
                 curves = stats::predict(r, times = times, subjects = ids),
                 outcome = stats::setNames(r$subjects$outcome, r$subjects$subject)[ids],
                 points = r$points[, c("point_id", "initial_residual", "flagged")],
                 cutoff = r$cutoff, alpha = r$alpha,
-                initial_sigma = if (!is.null(ini) && ini$status == "ok") ini$sigma else NA_real_)
+                initial_sigma = if (!is.null(ini) && ini$status == "ok") ini$sigma else NA_real_,
+                # Compact diagnostics: no saemix objects, but every warning, FIM
+                # availability and the full alpha profile are kept.
+                diagnostics = list(initial = stage_diag(ini), screening = stage_diag(r$stages$screening),
+                                   alpha_profile = r$profile))
   }
   out$minutes <- (proc.time()[["elapsed"]] - started) / 60
   out

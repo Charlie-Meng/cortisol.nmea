@@ -34,6 +34,8 @@ tune_threshold <- function(runs, k, sd = "reference", method = "Full") {
       reference = runs$design$references[[cs$trimester]]$noise_sd,
       model = r$initial_sigma,
       mad = stats::mad(res),
+      iterative = stop("sd = \"iterative\" needs refitting; compare it with methods_threshold_grid().",
+                       call. = FALSE),
       stop("`sd` must be a number, \"reference\", \"model\" or \"mad\".", call. = FALSE))
     do.call(rbind, lapply(k, function(kk) {
       f <- abs(res) > kk * scale

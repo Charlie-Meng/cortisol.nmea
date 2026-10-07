@@ -16,7 +16,7 @@
 #' The refit in step 4 runs only when at least one screen is enabled.
 #'
 #' @param initial_alpha Alpha for the initial and screening fits.
-#' @param outlier An outlier rule (see [outlier_fixed()]), a number (treated
+#' @param outlier An outlier rule (default [outlier_default()]; see also [outlier_fixed()]), a number (treated
 #'   as a fixed cutoff), or `NULL` to keep all measurements.
 #' @param min_obs Minimum number of measurements per subject after outlier
 #'   removal, or `NULL`.
@@ -32,7 +32,7 @@
 #' nmea_steps(outlier = outlier_sd(k = 3.5, sd = "mad"), fvu_max = NULL)
 #' nmea_steps_direct()
 nmea_steps <- function(initial_alpha = 1,
-                       outlier = outlier_fixed(6),
+                       outlier = outlier_default(),
                        min_obs = 3L,
                        fvu_max = 0.5,
                        c1_positive = TRUE,

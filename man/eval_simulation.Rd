@@ -45,8 +45,10 @@ unavailable and are never counted as recovered.
 \item \code{eval_summary()}: within each cohort, average subject errors over the
 subjects available for \strong{all} compared methods, then summarize cohorts
 (mean, Monte Carlo SE, 95\% t interval) by trimester and scenario, plus an
-equal-weight pooled row across trimesters (Welch degrees of freedom).
-A cohort in which any compared method failed is excluded from that
+equal-weight pooled row across trimesters (Welch degrees of freedom). The
+pooled row assumes independent cohorts across trimesters (see the \code{seeds}
+argument of \code{\link[=sim_design]{sim_design()}}) and is \code{NA} when a planned trimester has no
+valid cohort, rather than silently re-weighting the others. A cohort in which any compared method failed is excluded from that
 comparison and counted in \code{Valid} vs \code{Planned}.
 \item \code{eval_paired()}: paired cohort-level differences \code{method - comparator} on
 the subjects common to the two methods; \code{Wins} counts cohorts where

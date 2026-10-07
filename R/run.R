@@ -6,8 +6,11 @@
 #'
 #' @param trimesters Trimesters to simulate (`"T1"`, `"T2"`, `"T3"`).
 #' @param n Subjects per cohort.
-#' @param seeds Either a named list with one integer vector per trimester, or
-#'   an integer vector used for every trimester.
+#' @param seeds Either a named list with one integer vector of seeds per
+#'   trimester (used as given), or an integer vector. A vector is expanded into
+#'   distinct trimester-specific seeds `3 * seed + i` for the `i`-th of
+#'   T1/T2/T3, so cohorts of different trimesters are independent, as assumed
+#'   by the pooled Monte Carlo intervals of [eval_summary()].
 #' @param scenarios Scenario names (`"D0"`, `"D1"`, `"D2"`) and/or a named
 #'   list of [contamination()] objects.
 #' @param methods Named list of methods (see [default_methods()]).
@@ -24,9 +27,17 @@ sim_design <- function(trimesters = c("T1", "T2", "T3"), n = 100, seeds = 1:10,
                        times = seq(0, 18, by = 0.1), references = list()) {
   trimesters <- match.arg(trimesters, c("T1", "T2", "T3"), several.ok = TRUE)
   .check_scalar_number(n, "n", lower = 3)
-  if (!is.list(seeds)) seeds <- stats::setNames(rep(list(seeds), length(trimesters)), trimesters)
+  if (!is.list(seeds)) {
+    if (!is.numeric(seeds) || any(!is.finite(seeds))) stop("`seeds` must be integers.", call. = FALSE)
+    seeds <- lapply(stats::setNames(trimesters, trimesters), function(t) {
+      as.integer((3 * as.double(seeds) + match(t, c("T1", "T2", "T3"))) %% 2147483647)
+    })
+  }
   if (!all(trimesters %in% names(seeds))) stop("`seeds` must have an entry for every trimester.", call. = FALSE)
   seeds <- lapply(seeds[trimesters], as.integer)
+  if (anyDuplicated(unlist(seeds))) {
+    warning("Some seeds are shared between trimesters; their cohorts are not independent.", call. = FALSE)
+  }
   if (is.character(scenarios)) {
     scenarios <- stats::setNames(lapply(scenarios, .scenario_contamination), scenarios)
   }
@@ -131,6 +142,18 @@ sim_run <- function(design, cache_dir = NULL, parallel = FALSE, verbose = TRUE) 
   out
 }
 
+# Deparsed source of every function in the package namespace, so that cached
+# results are not reused after the code changes (the development version
+# number does not change with every edit).
+.code_signature <- function() {
+  ns <- asNamespace("cortisol.nmea")
+  nms <- sort(ls(ns, all.names = TRUE))
+  lapply(stats::setNames(nms, nms), function(n) {
+    obj <- get(n, envir = ns)
+    if (is.function(obj)) deparse(obj) else NULL
+  })
+}
+
 .design_key <- function(design) {
   tmp <- tempfile()
   on.exit(unlink(tmp))
@@ -143,7 +166,9 @@ sim_run <- function(design, cache_dir = NULL, parallel = FALSE, verbose = TRUE) 
   })
   saveRDS(list(design$n, lapply(design$scenarios, unclass), method_sig, design$times,
                lapply(design$references, unclass),
-               as.character(utils::packageVersion("cortisol.nmea"))), tmp)
+               as.character(utils::packageVersion("cortisol.nmea")), .code_signature(),
+               as.character(utils::packageVersion("saemix")),
+               as.character(utils::packageVersion("mgcv"))), tmp)
   substr(unname(tools::md5sum(tmp)), 1, 10)
 }
 

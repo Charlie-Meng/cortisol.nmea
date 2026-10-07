@@ -1,7 +1,7 @@
 small_runs <- function(cache_dir = NULL) {
   ctrl <- fast_control()
   design <- sim_design(
-    trimesters = c("T2", "T3"), n = 20, seeds = 1:2, scenarios = c("D0", "D2"),
+    trimesters = c("T2", "T3"), n = 20, seeds = list(T2 = 1:2, T3 = 3:4), scenarios = c("D0", "D2"),
     methods = list(Direct = method_nmea(nmea_steps_direct(alpha_grid = c(1, 1.5)), ctrl),
                    Full = method_nmea(nmea_steps(alpha_grid = c(1, 1.5)), ctrl),
                    GAMM = method_gamm())
@@ -12,7 +12,7 @@ small_runs <- function(cache_dir = NULL) {
 test_that("sim_design validates its inputs", {
   d <- sim_design(trimesters = "T2", n = 10, seeds = 1:3, scenarios = c("D0", "D2"))
   expect_s3_class(d, "nmea_sim_design")
-  expect_equal(d$seeds$T2, 1:3)
+  expect_equal(d$seeds$T2, as.integer(3 * (1:3) + 2))
   expect_error(sim_design(scenarios = "D9"), "Unknown scenario")
   expect_error(sim_design(methods = list(method_gamm())), "named")
   custom <- sim_design(trimesters = "T1", seeds = 1, scenarios = list(neg = contamination(0.1, c(2, 3))))
@@ -68,8 +68,8 @@ test_that("a small study runs, caches and evaluates consistently", {
 test_that("the full-method flags in a run equal a direct pipeline call", {
   skip_on_cran()
   runs <- small_runs()
-  cs <- runs$cases[["T3_2_D2"]]
-  sim <- sim_contaminate(sim_cohort(sim_reference("T3"), n = 20, seed = 2), "D2")
+  cs <- runs$cases[["T3_4_D2"]]
+  sim <- sim_contaminate(sim_cohort(sim_reference("T3"), n = 20, seed = 4), "D2")
   r <- nmea_pipeline(sim$observed, steps = nmea_steps(alpha_grid = c(1, 1.5)), control = fast_control())
   expect_identical(cs$methods$Full$points$flagged, r$points$flagged)
   expect_equal(cs$methods$Full$curves, predict(r, times = runs$design$times))

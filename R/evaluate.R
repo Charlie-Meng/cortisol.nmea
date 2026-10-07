@@ -10,8 +10,10 @@
 #' * `eval_summary()`: within each cohort, average subject errors over the
 #'   subjects available for **all** compared methods, then summarize cohorts
 #'   (mean, Monte Carlo SE, 95% t interval) by trimester and scenario, plus an
-#'   equal-weight pooled row across trimesters (Welch degrees of freedom).
-#'   A cohort in which any compared method failed is excluded from that
+#'   equal-weight pooled row across trimesters (Welch degrees of freedom). The
+#'   pooled row assumes independent cohorts across trimesters (see the `seeds`
+#'   argument of [sim_design()]) and is `NA` when a planned trimester has no
+#'   valid cohort, rather than silently re-weighting the others. A cohort in which any compared method failed is excluded from that
 #'   comparison and counted in `Valid` vs `Planned`.
 #' * `eval_paired()`: paired cohort-level differences `method - comparator` on
 #'   the subjects common to the two methods; `Wins` counts cohorts where
@@ -192,11 +194,14 @@ eval_retention <- function(runs, method = "Full") {
 }
 
 # Equal-weight pooled mean across trimesters with a Welch-Satterthwaite interval.
+# If a planned trimester has no valid cohort, the equal-weight target is not
+# estimable: return NA instead of re-weighting the remaining trimesters.
 .pooled <- function(x, trimester) {
   ok <- is.finite(x)
-  groups <- split(x[ok], trimester[ok])
-  groups <- groups[lengths(groups) > 0]
-  if (!length(groups)) return(c(cohorts = 0, mean = NA, mcse = NA, lower = NA, upper = NA))
+  groups <- split(x[ok], factor(trimester[ok], levels = sort(unique(trimester))))
+  if (!length(groups) || any(lengths(groups) == 0)) {
+    return(c(cohorts = sum(ok), mean = NA, mcse = NA, lower = NA, upper = NA))
+  }
   n <- lengths(groups)
   w <- 1 / length(groups)
   m <- sum(w * vapply(groups, mean, numeric(1)))
