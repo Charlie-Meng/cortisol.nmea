@@ -28,6 +28,7 @@ outlier_fixed <- function(cutoff = 6) {
   .check_scalar_number(cutoff, "cutoff", lower = 0)
   structure(list(
     label = sprintf("fixed |residual| > %s", format(cutoff)),
+    spec = list(type = "fixed", cutoff = cutoff),
     cutoff_fun = function(fit) cutoff
   ), class = "nmea_outlier_rule")
 }
@@ -52,6 +53,7 @@ outlier_sd <- function(k = 3.5, sd) {
   sd_label <- if (is.function(sd)) "function" else format(sd)
   structure(list(
     label = sprintf("|residual| > %s x sd (sd = %s)", format(k), sd_label),
+    spec = list(type = "sd", k = k, sd = if (is.function(sd)) deparse(sd) else sd),
     cutoff_fun = function(fit) {
       value <- sd_fun(fit)
       .check_scalar_number(value, "sd", lower = 0)
@@ -64,7 +66,8 @@ outlier_sd <- function(k = 3.5, sd) {
 #' @export
 outlier_custom <- function(fun) {
   if (!is.function(fun)) stop("`fun` must be a function.", call. = FALSE)
-  structure(list(label = "custom rule", flag_fun = fun), class = "nmea_outlier_rule")
+  structure(list(label = "custom rule", spec = list(type = "custom", fun = deparse(fun)),
+                 flag_fun = fun), class = "nmea_outlier_rule")
 }
 
 #' @export

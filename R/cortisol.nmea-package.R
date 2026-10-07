@@ -9,4 +9,5 @@
 #' No participant-level data are included in this package.
 #'
 #' @keywords internal
+#' @importFrom ggplot2 .data
 "_PACKAGE"

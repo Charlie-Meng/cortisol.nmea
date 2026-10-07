@@ -1,4 +1,4 @@
-# cortisol.nmea (development version)
+# cortisol.nmea 0.0.0.9000
 
 * Complete rewrite of the package around the final NMEA simulation workflow.
   The earlier 0.0.0.9000 prototype (May 2026) is preserved in the `master`
@@ -36,3 +36,18 @@
   custom `contamination()` (spikes in either direction, absolute or
   noise-scaled, optional time window, or timing errors); `sim_thin()` adds
   optional missingness and sparsity.
+
+## Running, evaluating and reporting studies
+
+* `sim_design()` and `sim_run()` run complete studies (trimesters x seeds x
+  scenarios x methods) with optional on-disk caching for resuming and optional
+  parallel execution; failures are recorded, never replaced.
+  `method_nmea()`, `method_gamm()`, `default_methods()` and
+  `methods_threshold_grid()` specify the compared methods.
+* `eval_subjects()`, `eval_summary()` (common-subject curve RMSE and curve-AUC
+  error with Monte Carlo intervals), `eval_paired()`, `eval_detection()` and
+  `eval_retention()` summarize results.
+* `tune_threshold()` reports detection trade-offs over `k` without refitting.
+* `plot_cohort_curves()`, `plot_subject()`, `plot_recovery()`,
+  `plot_detection()` and `plot_retention()` reproduce the paper's figure
+  panels; `sim_report()` writes an HTML report.
