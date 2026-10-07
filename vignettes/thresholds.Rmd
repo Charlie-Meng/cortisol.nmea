@@ -1,0 +1,85 @@
+---
+title: "Choosing the outlier threshold"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Choosing the outlier threshold}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 3.2)
+```
+
+```{r setup}
+library(cortisol.nmea)
+```
+
+The workflow removes a sample when its residual from the initial fit is larger
+than a cutoff. A low cutoff removes more contamination but also more good
+samples; with only four or five samples per person, each wrongly removed sample
+costs a lot, and a person left with fewer than three is excluded altogether.
+
+## The rule
+
+The cutoff is $k$ times a noise standard deviation, so it scales with how noisy
+the data are:
+
+```{r rules}
+outlier_sd(k = 3.5, sd = "reference")   # trimester reference SD
+outlier_sd(k = 3, sd = "iterative")     # SD estimated from the data
+outlier_fixed(6)                        # the original fixed cutoff, in nmol/L
+```
+
+The default, `outlier_default()`, uses the reference SD for data labelled T1, T2
+or T3 and the iterative estimate otherwise. The iterative estimate first sets
+aside samples more than 2.75 median absolute deviations from the initial fit,
+refits, and takes the residual SD of that fit. It is meant as a first pass that
+removes clearly aberrant samples.
+
+Both multipliers were chosen so that the cutoff for second-trimester data is
+close to 6 nmol/L, the cutoff of the original analysis. With the reference SD,
+the cutoffs are 4.7, 6.2 and 6.8 nmol/L in the first, second and third
+trimesters, matching the noise level of each.
+
+## Why not the residual SD of the initial fit
+
+Two other scales are available, `sd = "model"` (the residual SD of the initial
+fit) and `sd = "mad"` (the median absolute deviation of its residuals). Both are
+estimated from the contaminated fit, so the cutoff rises as contamination rises:
+in our development simulation, `"model"` missed 43% of strong spikes, against
+25% for the reference SD. `"mad"` removed up to 6% of samples from clean data.
+Neither is used by default, but both can be chosen.
+
+## Exploring trade-offs
+
+`tune_threshold()` re-applies different multipliers to the saved initial
+residuals of a study. Nothing is refitted, so it is fast, but it reports only
+detection errors, not curve recovery.
+
+```{r tune}
+runs <- readRDS(system.file("extdata", "vignette-runs.rds", package = "cortisol.nmea"))
+tn <- tune_threshold(runs, k = seq(2, 6, by = 0.5), sd = "reference")
+d2 <- tn$summary[tn$summary$scenario == "D2", ]
+round(d2[, c("k", "cutoff", "FPR", "FNR")], 3)
+```
+
+```{r tune-plot}
+plot(d2$FPR, d2$FNR, type = "b", pch = 19, xlab = "False positive rate (clean samples removed)",
+     ylab = "False negative rate (spikes kept)")
+text(d2$FPR, d2$FNR, d2$k, pos = 4, cex = 0.8)
+```
+
+The function does not pick a threshold. To compare thresholds by curve recovery
+and retention, fit each one:
+
+```{r grid, eval = FALSE}
+design <- sim_design(trimesters = c("T1", "T2", "T3"), n = 100, seeds = 1:10,
+                     scenarios = c("D0", "D2"),
+                     methods = methods_threshold_grid(c(3, 3.5, 4), sd = "reference"))
+runs <- sim_run(design, cache_dir = "threshold-cache")
+eval_summary(runs)$summary
+```
+
+Choose the comparison criteria before looking at the results, and report
+retention with recovery.

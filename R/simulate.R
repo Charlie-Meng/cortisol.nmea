@@ -294,9 +294,9 @@ print.nmea_contamination <- function(x, ...) {
   if (x$rate == 0) {
     cat("<nmea_contamination> none\n")
   } else if (x$type == "spike") {
-    cat(sprintf("<nmea_contamination> %s spikes on %.1f%% of measurements, size U(%s, %s) x %s\n",
+    cat(sprintf("<nmea_contamination> %s spikes on %.1f%% of measurements, size U(%s, %s) %s\n",
                 x$direction, 100 * x$rate, x$magnitude[1], x$magnitude[2],
-                if (x$scale == "sigma") "sigma(t)" else "nmol/L"))
+                if (x$scale == "sigma") "x sigma(t)" else "nmol/L"))
   } else {
     cat(sprintf("<nmea_contamination> timing shifts on %.1f%% of measurements, U(%s, %s) h\n",
                 100 * x$rate, x$magnitude[1], x$magnitude[2]))

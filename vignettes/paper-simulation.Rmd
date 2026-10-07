@@ -1,0 +1,81 @@
+---
+title: "Reproducing the paper's simulation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Reproducing the paper's simulation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+```
+
+This vignette lists the exact design of the simulation study in the paper. The
+code is not run when the vignette is built; the full study takes about two
+hours on three cores.
+
+```{r setup}
+library(cortisol.nmea)
+```
+
+## Design
+
+Each trimester has ten independent cohorts of 100 people. Every cohort is
+analysed without contamination (D0), with mild contamination (D1: 5% of
+samples raised by 4-8 noise SDs) and with strong contamination (D2: 10% raised
+by 8-12 noise SDs).
+
+```{r design}
+ctrl <- nmea_control()   # 300 + 100 SAEM iterations, seed 632545
+methods <- list(
+  Direct = method_nmea(nmea_steps_direct(), ctrl),
+  Full = method_nmea(nmea_steps(), ctrl),                               # default rule
+  Full_fixed6 = method_nmea(nmea_steps(outlier = outlier_fixed(6)), ctrl),
+  Full_MAD = method_nmea(nmea_steps(outlier = outlier_sd(2.75, "mad")), ctrl),
+  GAMM = method_gamm()
+)
+design <- sim_design(
+  trimesters = c("T1", "T2", "T3"), n = 100,
+  seeds = list(T1 = 610161001:610161010, T2 = 610162001:610162010, T3 = 610163001:610163010),
+  scenarios = c("D0", "D1", "D2"), methods = methods
+)
+```
+
+## Running
+
+```{r run}
+future::plan(future::multisession, workers = 3)
+runs <- sim_run(design, cache_dir = "paper-simulation-cache", parallel = TRUE)
+saveRDS(runs, "paper-simulation-runs.rds")
+```
+
+## Tables and figures
+
+Curve recovery on the people all compared methods could fit:
+
+```{r tables}
+main <- c("Direct", "Full", "GAMM")
+eval_summary(runs, methods = main)$summary
+eval_paired(runs, "Full", "Direct")$summary
+eval_paired(runs, "Full", "GAMM")$summary
+eval_paired(runs, "Full", "Full_fixed6")$summary
+eval_retention(runs, "Full")$summary
+eval_detection(runs, "Full")$summary
+```
+
+Figure 1 shows one cohort under the three scenarios and individual examples;
+Figure 2 shows recovery across all cohorts, detection errors and retention.
+
+```{r figures}
+plot_cohort_curves(runs, "T3", seed = 610163001, methods = main)
+plot_subject(runs, "T3_S0013", trimester = "T3", seed = 610163001, scenario = "D2", methods = main)
+plot_recovery(runs, "rmse", methods = main)
+plot_recovery(runs, "auc_error", methods = main)
+plot_detection(runs, "Full", "D2")
+plot_retention(runs, "Full", "D2")
+sim_report(runs, "paper-simulation-report.html")
+```
+
+The fixed-cutoff and MAD arms are reference comparisons for the choice of the
+outlier rule.

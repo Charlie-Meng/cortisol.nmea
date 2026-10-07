@@ -1,0 +1,154 @@
+---
+title: "Fitting diurnal cortisol curves"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Fitting diurnal cortisol curves}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 3.5)
+```
+
+```{r setup}
+library(cortisol.nmea)
+```
+
+## The model
+
+Each person's cortisol curve is a scaled logistic bump on a baseline,
+
+$$f(t) = c_0 + \frac{c_1}{s}\, g\!\left(\frac{t^* - \mu}{s}\right),$$
+
+where $g$ is the logistic density and $t$ is hours since waking. $\mu$ is the
+time of the peak, $s$ its width, $c_1$ its size and $c_0$ the baseline. The rise
+before the peak is often steeper than the decline after it, so time before
+$\mu$ is rescaled, $t^* = \alpha t + (1-\alpha)\mu$, with $\alpha > 1$ giving a
+sharper rise. The four parameters vary between people (random effects) and
+$\alpha$ is shared within a fit.
+
+```{r curve}
+psi <- rbind(
+  symmetric = c(mu = 0.6, s = 0.75, c1 = 30, c0 = 2.5, alpha = 1),
+  steeper_rise = c(mu = 0.6, s = 0.75, c1 = 30, c0 = 2.5, alpha = 1.5)
+)
+t <- seq(0, 18, by = 0.05)
+matplot(t, t(nmea_curve(t, psi)), type = "l", lty = 1, col = c("grey50", "#277DA8"),
+        xlab = "Hours since waking", ylab = "Cortisol (nmol/L)")
+legend("topright", c("alpha = 1", "alpha = 1.5"), lty = 1, col = c("grey50", "#277DA8"), bty = "n")
+```
+
+## Preparing data
+
+The data are in long format, one row per sample. `cortisol_data()` checks them
+and standardizes the column names. Time is hours since the first sample of the
+day, which is taken as waking; concentrations are in nmol/L.
+
+Here a simulated second-trimester cohort of 40 people stands in for real data.
+It contains some aberrant samples, as real data often do.
+
+```{r data}
+sim <- sim_contaminate(sim_cohort(sim_reference("T2"), n = 40, seed = 2026), "D2")
+d <- sim$observed
+d
+```
+
+With your own data, the call looks like
+
+```r
+d <- cortisol_data(my_data, id = "participant", time = "hours_since_waking",
+                   value = "cortisol", trimester = "trimester")
+```
+
+`convert_cortisol_units()` converts from ug/dL or ng/mL, and `prep_cortisol()`
+can restrict the data to a time window. Fit each trimester or study wave
+separately.
+
+## Running the workflow
+
+`nmea_pipeline()` runs the full workflow by default:
+
+1. fit the model with $\alpha = 1$;
+2. remove samples whose absolute residual exceeds a cutoff;
+3. exclude people left with fewer than three samples;
+4. refit, and exclude people whose curve explains less than half of their
+   variation (fraction of variance unexplained, FVU, of 0.5 or more) or whose
+   curve has no morning peak ($c_1 \le 0$);
+5. refit over $\alpha = 0.8, 0.9, \dots, 1.5$ and keep the best fit.
+
+```{r fit}
+fit <- nmea_pipeline(d)
+fit
+```
+
+The cutoff in step 2 is $k$ times a noise standard deviation. For data labelled
+T1, T2 or T3 the package uses 3.5 times the noise SD of that trimester's
+reference; otherwise it estimates the noise SD from the data. See
+`vignette("thresholds")`.
+
+The result records what happened to every sample and every person.
+
+```{r records}
+head(fit$points[fit$points$flagged, ])
+table(fit$subjects$outcome)
+```
+
+People who were excluded keep their rows, with no curve. Report how many were
+excluded and why alongside any result based on the fitted curves.
+
+## Curves and features
+
+```{r predict}
+curves <- predict(fit, times = seq(0, 18, by = 0.1))
+dim(curves)
+```
+
+```{r features}
+features <- nmea_features(fit)
+head(round(features, 2))
+```
+
+| Feature | Meaning |
+|---|---|
+| `AUC` | area under the curve from waking to 18 h (nmol·h/L) |
+| `EML` | level at waking |
+| `PCL` | peak level |
+| `AR` | awakening rise, `PCL - EML`, or 0 if the peak is before waking |
+| `DDC` | steepest decline after the peak (nmol/L per hour) |
+
+## Changing the workflow
+
+Each step is controlled by `nmea_steps()`; set a step to `NULL` to skip it.
+
+```{r steps}
+nmea_steps(outlier = outlier_fixed(6))              # the original fixed cutoff
+nmea_steps(outlier = outlier_sd(2.75, "mad"), fvu_max = NULL)
+nmea_steps(alpha_grid = 1)                          # symmetric curves only
+```
+
+`nmea_steps_direct()` fits all samples with no removal or screening, which is
+useful as a comparison.
+
+```{r direct}
+direct <- nmea_pipeline(d, steps = nmea_steps_direct())
+direct
+```
+
+Fitting settings (SAEM iterations, seed, starting values) are in
+`nmea_control()`. The fit uses the `saemix` package; results are reproducible
+for a given seed, and your own random number stream is left unchanged.
+
+## A simulated cohort lets us check the result
+
+Because this cohort was simulated, the true curves are known.
+
+```{r check}
+truth <- nmea_curve(seq(0, 18, by = 0.1), sim$truth$psi)
+rmse <- function(pred) sqrt(rowMeans((pred - truth)^2))
+kept <- fit$subjects$outcome == "retained"
+c(full = mean(rmse(curves)[kept]),
+  direct = mean(rmse(predict(direct, times = seq(0, 18, by = 0.1)))[kept]))
+```
+
+`vignette("simulation")` shows how to do this systematically.

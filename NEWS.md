@@ -59,3 +59,11 @@
 * `plot_cohort_curves()`, `plot_subject()`, `plot_recovery()`,
   `plot_detection()` and `plot_retention()` reproduce the paper's figure
   panels; `sim_report()` writes an HTML report.
+
+## Documentation
+
+* README and four vignettes: fitting your own data (`cortisol-nmea`),
+  simulation studies (`simulation`), choosing the outlier threshold
+  (`thresholds`) and reproducing the paper's simulation (`paper-simulation`).
+  A small precomputed synthetic study (`inst/extdata/vignette-runs.rds`, built
+  by `data-raw/vignette-runs.R`) keeps the vignettes fast.
