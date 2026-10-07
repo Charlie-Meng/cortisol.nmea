@@ -14,8 +14,11 @@
 
 \item{times}{Times since waking (hours).}
 
-\item{subjects}{Subjects to return. For an \code{nmea_result} the default is
-every input subject; subjects without a final curve get rows of \code{NA}.}
+\item{subjects}{Subject identifiers to return, always matched by identifier
+(numeric identifiers are matched as text, never used as row positions).
+For an \code{nmea_result} the default is every input subject, and subjects
+without a final curve get rows of \code{NA}; unknown identifiers are an error.
+For an \code{nmea_fit} the default is every fitted subject.}
 
 \item{...}{Unused.}
 }
