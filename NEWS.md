@@ -29,3 +29,20 @@
   identifiers containing `/` (cross-review of PR #1).
 * `nmea_fit_alpha()` keeps compact diagnostics (FIM availability, warnings,
   error, time) for every alpha candidate.
+
+## Simulation layer
+
+* `sim_reference()` returns aggregate pregnancy-trimester summaries (parameter
+  quantile knots with a Gaussian copula, sampling protocol and missingness
+  patterns, noise SD by time). No participant-level data are included.
+  `sim_reference_modify()` customizes any component.
+* `sim_cohort()` generates synthetic cohorts with truth kept separate from the
+  observed data; `sim_contaminate()` adds the paper's D0/D1/D2 scenarios or a
+  custom `contamination()` (spikes in either direction, absolute or
+  noise-scaled, optional time window, or timing errors); `sim_thin()` adds
+  optional missingness and sparsity.
+* Cross-review of PR #2: contamination never raises a measurement through the
+  floor (relevant to log-normal noise and custom floors); `corr` must be a
+  symmetric correlation matrix with unit diagonal; the split of rare
+  missingness patterns is a documented uniform assumption instead of an
+  estimate from fewer than 20 people.
