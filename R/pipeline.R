@@ -181,7 +181,7 @@ nmea_pipeline <- function(data, steps = nmea_steps(), control = nmea_control(),
                           keep_fits = keep_fits)
   result$profile <- final$profile
   if (keep_fits) result$stages$alpha_fits <- final$fits
-  if (final$status != "ok") return(finish(result, "All final alpha fits failed."))
+  if (final$status != "ok") return(finish(result, paste("Final fit:", final$error)))
   result$status <- "ok"
   result$final <- final$best
   result$alpha <- final$alpha
@@ -217,14 +217,18 @@ coef.nmea_result <- function(object, ...) {
 #'
 #' @param object An `nmea_result` or `nmea_fit`.
 #' @param times Times since waking (hours).
-#' @param subjects Subjects to return. For an `nmea_result` the default is
-#'   every input subject; subjects without a final curve get rows of `NA`.
+#' @param subjects Subject identifiers to return, always matched by identifier
+#'   (numeric identifiers are matched as text, never used as row positions).
+#'   For an `nmea_result` the default is every input subject, and subjects
+#'   without a final curve get rows of `NA`; unknown identifiers are an error.
+#'   For an `nmea_fit` the default is every fitted subject.
 #' @param ... Unused.
 #'
 #' @return A matrix with one row per subject and one column per time.
 #' @export
 predict.nmea_result <- function(object, times = seq(0, 18, by = 0.1), subjects = NULL, ...) {
-  if (is.null(subjects)) subjects <- object$subjects$subject
+  subjects <- if (is.null(subjects)) object$subjects$subject else as.character(subjects)
+  .check_known_subjects(subjects, object$subjects$subject)
   out <- matrix(NA_real_, length(subjects), length(times), dimnames = list(subjects, NULL))
   if (object$status != "ok") return(out)
   psi <- object$final$psi
@@ -237,6 +241,16 @@ predict.nmea_result <- function(object, times = seq(0, 18, by = 0.1), subjects =
 #' @export
 predict.nmea_fit <- function(object, times = seq(0, 18, by = 0.1), subjects = NULL, ...) {
   psi <- stats::coef(object)
-  if (is.null(subjects)) subjects <- rownames(psi)
-  nmea_curve(times, psi[subjects, , drop = FALSE])
+  subjects <- if (is.null(subjects)) rownames(psi) else as.character(subjects)
+  .check_known_subjects(subjects, rownames(psi))
+  nmea_curve(times, psi[match(subjects, rownames(psi)), , drop = FALSE])
+}
+
+.check_known_subjects <- function(subjects, known) {
+  unknown <- setdiff(subjects, known)
+  if (length(unknown)) {
+    stop("Unknown subject identifier(s): ", paste(utils::head(unknown, 5), collapse = ", "),
+         if (length(unknown) > 5) ", ...", call. = FALSE)
+  }
+  invisible(subjects)
 }
