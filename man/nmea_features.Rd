@@ -4,7 +4,7 @@
 \alias{nmea_features}
 \title{Interpretable features of NMEA cortisol curves}
 \usage{
-nmea_features(x, tmax = 18, auc = c("exact", "legacy"))
+nmea_features(x, tmax = 18)
 }
 \arguments{
 \item{x}{A parameter matrix (columns \code{mu}, \code{s}, \code{c1}, \code{c0}, \code{alpha}), a
@@ -12,8 +12,6 @@ named parameter vector, or a fitted object from \code{\link[=nmea_fit]{nmea_fit(
 \code{\link[=nmea_pipeline]{nmea_pipeline()}}.}
 
 \item{tmax}{Upper limit of the AUC integral in hours.}
-
-\item{auc}{\code{"exact"} (default) or \code{"legacy"}.}
 }
 \value{
 A matrix with one row per subject and columns \code{AUC}, \code{EML}, \code{PCL},
@@ -33,10 +31,8 @@ Computes per-subject curve features from NMEA parameters.
 (nmol/L per hour).
 }
 
-\code{auc = "exact"} integrates the warped curve piecewise and is valid for any
-\code{mu}. \code{auc = "legacy"} reproduces the closed form used in the original
-analysis code, which equals the exact integral only when \verb{0 < mu < tmax};
-it is kept for reproducing earlier results.
+The AUC integrates the warped curve piecewise (before and after \code{mu}), so
+it is exact for any peak location, including peaks before waking.
 }
 \examples{
 psi <- rbind(a = c(mu = 0.6, s = 0.75, c1 = 30, c0 = 2.5, alpha = 1.5),

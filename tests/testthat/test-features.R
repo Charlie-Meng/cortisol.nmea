@@ -10,14 +10,6 @@ test_that("exact AUC matches numerical integration for any peak location", {
   }
 })
 
-test_that("legacy AUC agrees with the exact AUC only when 0 < mu < tmax", {
-  inside <- c(mu = 0.6, s = 0.8, c1 = 28, c0 = 2.2, alpha = 1.4)
-  outside <- c(mu = -0.4, s = 0.8, c1 = 28, c0 = 2.2, alpha = 1.4)
-  expect_equal(nmea_features(inside, auc = "legacy")[, "AUC"], nmea_features(inside)[, "AUC"])
-  expect_false(isTRUE(all.equal(nmea_features(outside, auc = "legacy")[, "AUC"],
-                                nmea_features(outside)[, "AUC"])))
-})
-
 test_that("EML, PCL, AR and DDC agree with the curve", {
   p <- c(mu = 0.6, s = 0.8, c1 = 28, c0 = 2.2, alpha = 1.4)
   f <- nmea_features(p)

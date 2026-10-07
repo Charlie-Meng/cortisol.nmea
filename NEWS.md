@@ -10,9 +10,9 @@
   and prepare long-format cortisol data.
 * `nmea_curve()`, `nmea_warp_time()` and `nmea_unwarp_time()` evaluate the
   asymmetric scaled-logistic curve in a numerically stable form.
-* `nmea_features()` returns AUC, EML, PCL, AR and DDC. The default AUC is the
-  exact piecewise integral; `auc = "legacy"` reproduces the original closed
-  form, which is exact only when `0 < mu < tmax`.
+* `nmea_features()` returns AUC, EML, PCL, AR and DDC. The AUC is the exact
+  piecewise integral of the warped curve; it corrects the original closed
+  form, which was exact only when `0 < mu < tmax`.
 * `nmea_fit()` and `nmea_fit_alpha()` fit the NMEA model with saemix; the
   saemix structural model is arithmetically identical to the original code so
   that published results are reproducible.
