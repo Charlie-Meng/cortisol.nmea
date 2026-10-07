@@ -24,3 +24,15 @@
   until the `k x sd` default is chosen.
 * `fit_gamm_sanchez()` provides the GAMM comparator adapted from Sánchez et al.
   (2012).
+
+## Simulation layer
+
+* `sim_reference()` returns aggregate pregnancy-trimester summaries (parameter
+  quantile knots with a Gaussian copula, sampling protocol and missingness
+  patterns, noise SD by time). No participant-level data are included.
+  `sim_reference_modify()` customizes any component.
+* `sim_cohort()` generates synthetic cohorts with truth kept separate from the
+  observed data; `sim_contaminate()` adds the paper's D0/D1/D2 scenarios or a
+  custom `contamination()` (spikes in either direction, absolute or
+  noise-scaled, optional time window, or timing errors); `sim_thin()` adds
+  optional missingness and sparsity.
