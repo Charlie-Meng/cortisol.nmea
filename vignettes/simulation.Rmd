@@ -1,0 +1,154 @@
+---
+title: "Simulation studies"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Simulation studies}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 3.2)
+```
+
+```{r setup}
+library(cortisol.nmea)
+```
+
+A simulation study asks how well a method recovers curves we know. The package
+generates cohorts that resemble prenatal cortisol data, contaminates them,
+fits each method and compares the fitted curves with the truth.
+
+## Generating a cohort
+
+`sim_reference()` holds the summaries that drive the generator for one
+trimester: the distribution of the curve parameters, the sampling schedule and
+its missingness, and the measurement noise. These are aggregate summaries of a
+real prenatal cohort; no participant data are included.
+
+```{r reference}
+ref <- sim_reference("T2")
+ref
+```
+
+`sim_cohort()` draws people from it. The observed data and the truth are kept
+apart, so the methods only ever see `$observed`.
+
+```{r cohort}
+base <- sim_cohort(ref, n = 100, seed = 1)
+base
+base$observed
+```
+
+Samples follow a protocol of waking, +45 min, +2.5 h, +8 h and +12 h, with
+realistic delays and about one in five people missing a sample. Noise is larger
+in the afternoon than at waking, as in the real data. Any of this can be changed
+with `sim_reference_modify()`, for example a noisier assay:
+
+```{r modify}
+noisy <- sim_reference_modify(ref, noise_multiplier = 1.5)
+```
+
+## Contamination
+
+`sim_contaminate()` adds aberrant samples to a clean cohort. The paper uses
+three scenarios: none (D0), 5% of samples raised by 4-8 noise SDs (D1), and 10%
+raised by 8-12 noise SDs (D2). Scenarios built from the same cohort share its
+people, times and noise, so methods can be compared in pairs.
+
+```{r contaminate}
+d2 <- sim_contaminate(base, "D2")
+d2
+```
+
+`contamination()` defines other patterns: downward or two-sided spikes, spikes
+of a fixed size, spikes restricted to a time window, or misrecorded sampling
+times.
+
+```{r custom}
+contamination(rate = 0.05, magnitude = c(5, 10), scale = "absolute", time_window = c(0, 1))
+contamination(rate = 0.05, magnitude = c(0.5, 1.5), type = "timing")
+```
+
+## Designing and running a study
+
+A design crosses trimesters, base cohorts (one per seed) and scenarios, and
+lists the methods to compare. The default methods are Direct NMEA (no
+cleaning), Full NMEA (the full workflow) and a generalized additive mixed model
+(GAMM) adapted from Sánchez et al. (2012).
+
+```{r design}
+design <- sim_design(trimesters = "T2", n = 40, seeds = list(T2 = 11:13),
+                     scenarios = c("D0", "D2"), times = seq(0, 18, by = 0.25))
+design
+```
+
+```{r run, eval = FALSE}
+runs <- sim_run(design, cache_dir = "sim-cache")
+```
+
+`sim_run()` saves each data set's results to `cache_dir` as it finishes, so an
+interrupted study picks up where it stopped. With `parallel = TRUE` and a
+`future::plan()`, base cohorts run in parallel. Failed fits are recorded as
+failures and never replaced.
+
+The study above takes a few minutes. Its results ship with the package:
+
+```{r load}
+runs <- readRDS(system.file("extdata", "vignette-runs.rds", package = "cortisol.nmea"))
+runs
+```
+
+## Evaluating
+
+Curves are compared with the truth on a time grid. Within each cohort, errors
+are averaged over the people every method could fit, then averaged over
+cohorts with a Monte Carlo interval. With only three cohorts here the intervals
+are wide; the paper uses ten per trimester.
+
+```{r summary}
+s <- eval_summary(runs)$summary
+s[s$measure == "rmse", c("scenario", "method", "valid", "mean", "lower", "upper")]
+```
+
+`eval_paired()` compares two methods cohort by cohort.
+
+```{r paired}
+p <- eval_paired(runs, "Full", "Direct")$summary
+p[, c("scenario", "valid", "mean", "lower", "upper", "wins")]
+```
+
+Lower errors for the full workflow come partly from excluding people it cannot
+fit. Always look at retention alongside recovery.
+
+```{r retention}
+r <- eval_retention(runs, "Full")$summary
+r[r$scenario == "D2", c("measure", "mean")]
+```
+
+`eval_detection()` reports how well the outlier step separated contaminated
+from clean samples.
+
+```{r detection}
+det <- eval_detection(runs, "Full")$summary
+det[det$scenario == "D2" & det$measure %in% c("FPR", "FNR", "roc_auc"),
+    c("measure", "mean", "lower", "upper")]
+```
+
+## Figures and report
+
+```{r cohort-plot}
+plot_cohort_curves(runs, trimester = "T2", seed = 11)
+```
+
+```{r subject-plot, fig.width = 6, fig.height = 3.8}
+plot_subject(runs, "T2_S0019", trimester = "T2", seed = 11, scenario = "D2")
+```
+
+```{r recovery-plot}
+plot_recovery(runs)
+```
+
+`plot_detection()` and `plot_retention()` show the remaining panels of the
+paper's figures. `sim_report(runs, "report.html")` writes all tables and
+figures to one HTML file.

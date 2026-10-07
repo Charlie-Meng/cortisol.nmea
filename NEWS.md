@@ -73,3 +73,11 @@
   are plotted as "not evaluated"; tuning, cohort plots and the report handle
   failed or single-method studies; summaries flag incomplete plans
   (`complete`); evaluation grids are validated.
+
+## Documentation
+
+* README and four vignettes: fitting your own data (`cortisol-nmea`),
+  simulation studies (`simulation`), choosing the outlier threshold
+  (`thresholds`) and reproducing the paper's simulation (`paper-simulation`).
+  A small precomputed synthetic study (`inst/extdata/vignette-runs.rds`, built
+  by `data-raw/vignette-runs.R`) keeps the vignettes fast.
