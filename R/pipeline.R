@@ -16,7 +16,7 @@
 #' The refit in step 4 runs only when at least one screen is enabled.
 #'
 #' @param initial_alpha Alpha for the initial and screening fits.
-#' @param outlier An outlier rule (see [outlier_fixed()]), a number (treated
+#' @param outlier An outlier rule (default [outlier_default()]; see also [outlier_fixed()]), a number (treated
 #'   as a fixed cutoff), or `NULL` to keep all measurements.
 #' @param min_obs Minimum number of measurements per subject after outlier
 #'   removal, or `NULL`.
@@ -32,7 +32,7 @@
 #' nmea_steps(outlier = outlier_sd(k = 3.5, sd = "mad"), fvu_max = NULL)
 #' nmea_steps_direct()
 nmea_steps <- function(initial_alpha = 1,
-                       outlier = outlier_fixed(6),
+                       outlier = outlier_default(),
                        min_obs = 3L,
                        fvu_max = 0.5,
                        c1_positive = TRUE,
@@ -94,10 +94,11 @@ print.nmea_steps <- function(x, ...) {
 #'   * `status`: `"ok"` or `"failure"`, and `error`;
 #'   * `final`: the selected final `nmea_fit`, and `alpha`, `profile`;
 #'   * `points`: one row per input measurement with the initial residual,
-#'     the flag and the cutoff;
+#'     the flag (`NA` when the outlier rule itself failed) and the cutoff;
 #'   * `subjects`: one row per input subject with its outcome (`retained`,
 #'     `excluded_min_obs`, `excluded_fvu`, `excluded_c1` or `not_fitted`);
-#'   * `stages`: the initial and screening fits;
+#'   * `stages`: the initial and screening fits, and diagnostics of the outlier
+#'     rule's own calibration (e.g. the iterative SD refit);
 #'   * `steps`, `control`.
 #' @export
 nmea_pipeline <- function(data, steps = nmea_steps(), control = nmea_control(),
@@ -132,9 +133,15 @@ nmea_pipeline <- function(data, steps = nmea_steps(), control = nmea_control(),
     first <- nmea_fit(current, alpha = steps$initial_alpha, control = control)
     result$stages$initial <- first
     if (first$status != "ok") return(finish(result, paste("Initial fit failed:", first$error)))
-    rule <- .apply_outlier_rule(steps$outlier, first)
     idx <- match(result$points$point_id, first$data$point_id)
     result$points$initial_residual <- first$residual[idx]
+    rule <- tryCatch(.apply_outlier_rule(steps$outlier, first),
+                     error = function(e) structure(conditionMessage(e), class = "rule_error"))
+    if (inherits(rule, "rule_error")) {
+      result$points$flagged <- NA   # no removal decision was made
+      return(finish(result, paste("Outlier rule failed:", unclass(rule))))
+    }
+    result$stages$rule <- rule$diagnostics
     result$points$flagged <- rule$flag[idx]
     result$cutoff <- rule$cutoff
     flagged_by_subject <- tapply(result$points$flagged, result$points$subject, sum)
@@ -193,7 +200,7 @@ nmea_pipeline <- function(data, steps = nmea_steps(), control = nmea_control(),
 print.nmea_result <- function(x, ...) {
   cat("<nmea_result>", if (x$status == "ok") "completed" else paste("FAILED:", x$error), "\n")
   cat(sprintf("  %d subjects, %d measurements; %d measurements flagged",
-              nrow(x$subjects), nrow(x$points), sum(x$points$flagged)))
+              nrow(x$subjects), nrow(x$points), sum(x$points$flagged, na.rm = TRUE)))
   if (is.finite(x$cutoff)) cat(sprintf(" (cutoff %.3f nmol/L)", x$cutoff))
   cat("\n")
   tab <- table(factor(x$subjects$outcome, levels = c("retained", "excluded_min_obs",

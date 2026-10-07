@@ -20,7 +20,8 @@
 .maybe_quiet <- function(expr, quiet = TRUE) {
   if (!isTRUE(quiet)) return(expr)
   out <- NULL
-  utils::capture.output(out <- suppressMessages(expr))
+  # saemix also reports internal try() failures on stderr; capture both streams.
+  utils::capture.output(utils::capture.output(out <- suppressMessages(expr), type = "message"))
   out
 }
 
