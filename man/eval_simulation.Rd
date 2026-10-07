@@ -48,8 +48,13 @@ subjects available for \strong{all} compared methods, then summarize cohorts
 equal-weight pooled row across trimesters (Welch degrees of freedom). The
 pooled row assumes independent cohorts across trimesters (see the \code{seeds}
 argument of \code{\link[=sim_design]{sim_design()}}) and is \code{NA} when a planned trimester has no
-valid cohort, rather than silently re-weighting the others. A cohort in which any compared method failed is excluded from that
-comparison and counted in \code{Valid} vs \code{Planned}.
+valid cohort, rather than silently re-weighting the others. A cohort in
+which any compared method failed is excluded from that comparison and
+counted in \code{valid} vs \code{planned}; \code{complete} is \code{FALSE} for such rows, which
+then describe the valid cohorts only rather than the full planned study.
+The common subjects of \code{eval_summary()} (all compared methods) and of
+\code{eval_paired()} (two methods) can differ, so the paired difference is not
+in general the difference of the two summary means.
 \item \code{eval_paired()}: paired cohort-level differences \code{method - comparator} on
 the subjects common to the two methods; \code{Wins} counts cohorts where
 \code{method} has the lower error.

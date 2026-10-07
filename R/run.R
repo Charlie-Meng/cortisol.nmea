@@ -27,6 +27,10 @@ sim_design <- function(trimesters = c("T1", "T2", "T3"), n = 100, seeds = 1:10,
                        times = seq(0, 18, by = 0.1), references = list()) {
   trimesters <- match.arg(trimesters, c("T1", "T2", "T3"), several.ok = TRUE)
   .check_scalar_number(n, "n", lower = 3)
+  if (!is.numeric(times) || length(times) < 2 || any(!is.finite(times)) || any(diff(times) <= 0) ||
+      times[1] < 0) {
+    stop("`times` must be a finite, increasing, non-negative grid of at least two points.", call. = FALSE)
+  }
   if (!is.list(seeds)) {
     if (!is.numeric(seeds) || any(!is.finite(seeds))) stop("`seeds` must be integers.", call. = FALSE)
     seeds <- lapply(stats::setNames(trimesters, trimesters), function(t) {
@@ -161,7 +165,7 @@ sim_run <- function(design, cache_dir = NULL, parallel = FALSE, verbose = TRUE) 
   method_sig <- lapply(design$methods, function(m) {
     if (m$type == "gamm") return(list("gamm", m$k))
     s <- m$steps
-    list("nmea", if (is.null(s$outlier)) NULL else s$outlier$spec, s$initial_alpha, s$min_obs,
+    list("nmea", if (is.null(s$outlier)) NULL else .spec_plain(s$outlier$spec), s$initial_alpha, s$min_obs,
          s$fvu_max, s$c1_positive, s$alpha_grid, unclass(m$control))
   })
   saveRDS(list(design$n, lapply(design$scenarios, unclass), method_sig, design$times,

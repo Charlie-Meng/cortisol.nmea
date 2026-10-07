@@ -77,12 +77,18 @@ print(plot_recovery(runs, "auc_error"))
 
 ```{r paired, eval = has_full}
 others <- setdiff(names(d$methods), params$full_method)
-pr <- do.call(rbind, lapply(others, function(o) eval_paired(runs, params$full_method, o)$summary))
-pr <- pr[pr$trimester == "All", ]
-pr$estimate <- sprintf("%s [%s, %s]", fmt(pr$mean), fmt(pr$lower), fmt(pr$upper))
-knitr::kable(pr[, c("scenario", "method", "valid", "estimate", "wins")], row.names = FALSE,
-             caption = "Paired RMSE differences (pooled over trimesters; negative favours the first method)",
-             col.names = c("Scenario", "Comparison", "Valid cohorts", "Mean difference [95% MC]", "Wins"))
+if (!length(others)) {
+  cat("Only one method was run; no paired comparison.\n")
+} else {
+  pr <- do.call(rbind, lapply(others, function(o) eval_paired(runs, params$full_method, o)$summary))
+  pooled_label <- if (length(d$trimesters) > 1) "All" else d$trimesters
+  pr <- pr[pr$trimester == pooled_label, ]
+  pr$estimate <- sprintf("%s [%s, %s]", fmt(pr$mean), fmt(pr$lower), fmt(pr$upper))
+  knitr::kable(pr[, c("scenario", "method", "valid", "estimate", "wins")], row.names = FALSE,
+               caption = sprintf("Paired RMSE differences (%s; negative favours the first method)",
+                                 if (pooled_label == "All") "trimesters weighted equally" else pooled_label),
+               col.names = c("Scenario", "Comparison", "Valid cohorts", "Mean difference [95% MC]", "Wins"))
+}
 ```
 
 ## Example cohort

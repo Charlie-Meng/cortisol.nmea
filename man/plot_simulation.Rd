@@ -69,7 +69,9 @@ scenario for one base cohort. Mean curves use each method's own available
 subjects.
 \item \code{plot_subject()}: one subject's fitted and true curves with its
 measurements classified by the workflow's outlier step: TP (contaminated,
-flagged), FP (clean, flagged), FN (contaminated, missed), TN (clean, kept).
+flagged), FP (clean, flagged), FN (contaminated, missed), TN (clean, kept);
+measurements without a removal decision (no outlier step, or a failed
+initial fit or rule) are shown as not evaluated.
 \item \code{plot_recovery()}: cohort-level curve RMSE or curve-AUC error on common
 subjects (small dots), with means and 95\% Monte Carlo intervals.
 \item \code{plot_detection()}: FPR and FNR of a workflow method by trimester.

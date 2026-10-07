@@ -7,15 +7,18 @@
 \alias{outlier_custom}
 \title{Outlier rules for the NMEA workflow}
 \usage{
-outlier_default()
+outlier_default(reference = NULL)
 
 outlier_fixed(cutoff = 6)
 
-outlier_sd(k = 3.5, sd)
+outlier_sd(k = 3.5, sd, reference = NULL)
 
 outlier_custom(fun)
 }
 \arguments{
+\item{reference}{For \code{sd = "reference"}: \code{NULL} (built-in reference chosen
+by the trimester label), an \code{nmea_reference}, or a noise SD in nmol/L.}
+
 \item{cutoff}{Positive cutoff in nmol/L.}
 
 \item{k}{Positive multiplier.}
@@ -34,19 +37,22 @@ when its absolute residual exceeds the rule's cutoff.
 \details{
 \itemize{
 \item \code{outlier_default()} is the package default. For data labelled with a
-pregnancy trimester (\code{"T1"}, \code{"T2"}, \code{"T3"}) it uses
-\code{outlier_sd(3.5, "reference")}; otherwise \code{outlier_sd(3, "iterative")},
-an empirical first-pass screen for clearly aberrant measurements.
+pregnancy trimester (\code{"T1"}, \code{"T2"}, \code{"T3"}), or when \code{reference} is
+given, it uses \code{outlier_sd(3.5, "reference")}; otherwise
+\code{outlier_sd(3, "iterative")}, an empirical first-pass screen for clearly
+aberrant measurements.
 \item \code{outlier_fixed(cutoff)} uses a fixed cutoff in nmol/L. \code{cutoff = 6}
 reproduces the original NMEA analysis.
 \item \code{outlier_sd(k, sd)} uses \code{cutoff = k * sd}. \code{sd} can be:
 \itemize{
 \item a number;
-\item \code{"reference"}: the noise SD of the pregnancy-trimester reference
-(\code{\link[=sim_reference]{sim_reference()}}) matching the data's \code{trimester} column;
+\item \code{"reference"}: the noise SD of a simulation reference. By default the
+built-in reference (\code{\link[=sim_reference]{sim_reference()}}) matching the data's \code{trimester}
+column; pass \code{reference} to use another one. In \code{\link[=sim_run]{sim_run()}} the
+design's own references are used;
 \item \code{"iterative"}: remove measurements with absolute initial residual above
 \verb{2.75 x MAD}, refit at the initial alpha, and use that fit's residual
-SD (needs one extra fit);
+SD (needs one extra fit, whose diagnostics are kept);
 \item \code{"model"}: the residual SD of the initial fit (inflated by
 contamination, so the cutoff rises as contamination increases);
 \item \code{"mad"}: the scaled median absolute deviation of the initial residuals;
@@ -59,6 +65,9 @@ returning one logical value per measurement (in the order of \code{fit$data}).
 The multipliers 3.5 (reference) and 3 (iterative) were calibrated so that
 the cutoff for second-trimester data is close to the original 6 nmol/L, and
 were compared with other choices in a development simulation.
+
+If a rule fails (for example the iterative refit does not converge), the
+workflow returns a failure for that fit instead of stopping.
 }
 \examples{
 outlier_default()
