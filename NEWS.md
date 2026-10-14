@@ -81,3 +81,5 @@
   (`thresholds`) and reproducing the paper's simulation (`paper-simulation`).
   A small precomputed synthetic study (`inst/extdata/vignette-runs.rds`, built
   by `data-raw/vignette-runs.R`) keeps the vignettes fast.
+* `sim_report()` gains `methods`, so a report can use the same set of methods
+  (and hence the same common subjects) as the main tables.

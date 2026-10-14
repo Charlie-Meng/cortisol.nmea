@@ -15,8 +15,8 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height
 library(cortisol.nmea)
 ```
 
-The workflow removes a sample when its residual from the initial fit is larger
-than a cutoff. A low cutoff removes more contamination but also more good
+The workflow removes a sample when its absolute residual from the initial fit is
+larger than a cutoff. A low cutoff removes more contamination but also more good
 samples; with only four or five samples per person, each wrongly removed sample
 costs a lot, and a person left with fewer than three is excluded altogether.
 
@@ -33,9 +33,10 @@ outlier_fixed(6)                        # the original fixed cutoff, in nmol/L
 
 The default, `outlier_default()`, uses the reference SD for data labelled T1, T2
 or T3 and the iterative estimate otherwise. The iterative estimate first sets
-aside samples more than 2.75 median absolute deviations from the initial fit,
-refits, and takes the residual SD of that fit. It is meant as a first pass that
-removes clearly aberrant samples.
+aside samples whose absolute residual exceeds 2.75 times the scaled median
+absolute deviation of the residuals (`stats::mad()`, which includes the usual
+factor 1.4826), refits, and takes the residual SD of that fit. It is meant as a
+first pass that removes clearly aberrant samples.
 
 Both multipliers were chosen so that the cutoff for second-trimester data is
 close to 6 nmol/L, the cutoff of the original analysis. With the reference SD,
@@ -45,11 +46,21 @@ trimesters, matching the noise level of each.
 ## Why not the residual SD of the initial fit
 
 Two other scales are available, `sd = "model"` (the residual SD of the initial
-fit) and `sd = "mad"` (the median absolute deviation of its residuals). Both are
-estimated from the contaminated fit, so the cutoff rises as contamination rises:
-in our development simulation, `"model"` missed 43% of strong spikes, against
-25% for the reference SD. `"mad"` removed up to 6% of samples from clean data.
-Neither is used by default, but both can be chosen.
+fit) and `sd = "mad"` (the scaled median absolute deviation of its residuals).
+Both are estimated from the fit to the data being cleaned, so they can change
+with the amount of contamination. In our development simulation (three cohorts
+of 100 per trimester; strong contamination adds 8-12 noise SDs to 10% of
+samples), with multipliers calibrated in the same way:
+
+| Scale (k) | Mean cutoff, clean / strong contamination | Spikes missed, strong contamination | Clean samples removed, no contamination |
+|---|---|---|---|
+| reference (3.5) | 5.9 / 5.9 nmol/L | 24% | 0.11% |
+| iterative (3) | 4.5 / 6.0 nmol/L | 25% | 0.35% |
+| model (1.75) | 3.2 / 10.2 nmol/L | 43% | 2.6% |
+| mad (2.75) | 3.1 / 8.7 nmol/L | 35% | 3.7% (6.1% in the first trimester) |
+
+These figures are specific to that simulation and those multipliers. Neither
+`"model"` nor `"mad"` is used by default, but both can be chosen.
 
 ## Exploring trade-offs
 

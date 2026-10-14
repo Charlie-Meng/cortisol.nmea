@@ -119,7 +119,10 @@ head(round(features, 2))
 
 ## Changing the workflow
 
-Each step is controlled by `nmea_steps()`; set a step to `NULL` to skip it.
+Each step is controlled by `nmea_steps()`. Set `outlier`, `min_obs` or
+`fvu_max` to `NULL` to skip that step, `c1_positive = FALSE` to keep curves
+without a morning peak, and give `alpha_grid` a single value to fix $\alpha$
+instead of searching.
 
 ```{r steps}
 nmea_steps(outlier = outlier_fixed(6))              # the original fixed cutoff

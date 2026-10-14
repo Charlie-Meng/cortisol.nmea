@@ -22,9 +22,12 @@ The package has two uses:
 
 ## Installation
 
+The package is being prepared for its first release (0.1.0) on the `rewrite`
+branch:
+
 ```r
 # install.packages("remotes")
-remotes::install_github("Charlie-Meng/cortisol.nmea")
+remotes::install_github("Charlie-Meng/cortisol.nmea", ref = "rewrite", build_vignettes = TRUE)
 ```
 
 ## Fitting your own data

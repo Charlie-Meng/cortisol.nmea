@@ -108,18 +108,25 @@ are wide; the paper uses ten per trimester.
 
 ```{r summary}
 s <- eval_summary(runs)$summary
-s[s$measure == "rmse", c("scenario", "method", "valid", "mean", "lower", "upper")]
+s[s$measure == "rmse", c("scenario", "method", "valid", "planned", "complete", "mean", "lower", "upper")]
 ```
 
-`eval_paired()` compares two methods cohort by cohort.
+`valid` counts the cohorts in which every compared method produced a fit, out
+of `planned`. When `complete` is `FALSE`, some cohorts are missing and the row
+describes the valid cohorts only, not the full planned study.
+
+`eval_paired()` compares two methods cohort by cohort, on the people both could
+fit. This set can be larger than the one above, so a paired difference is not
+in general the difference of two rows of the summary.
 
 ```{r paired}
 p <- eval_paired(runs, "Full", "Direct")$summary
 p[, c("scenario", "valid", "mean", "lower", "upper", "wins")]
 ```
 
-Lower errors for the full workflow come partly from excluding people it cannot
-fit. Always look at retention alongside recovery.
+Recovery is evaluated on the people retained by all compared methods. These
+results do not describe recovery for the whole cohort, so report retention
+alongside them.
 
 ```{r retention}
 r <- eval_retention(runs, "Full")$summary

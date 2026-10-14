@@ -11,9 +11,10 @@ vignette: >
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
 ```
 
-This vignette lists the exact design of the simulation study in the paper. The
-code is not run when the vignette is built; the full study takes about two
-hours on three cores.
+This vignette lists the proposed design of the simulation study for the paper.
+It will be updated with the final design and results once the study has been
+run. The code is not run when the vignette is built; the full study takes
+about two hours on three cores.
 
 ```{r setup}
 library(cortisol.nmea)
@@ -74,8 +75,11 @@ plot_recovery(runs, "rmse", methods = main)
 plot_recovery(runs, "auc_error", methods = main)
 plot_detection(runs, "Full", "D2")
 plot_retention(runs, "Full", "D2")
-sim_report(runs, "paper-simulation-report.html")
+sim_report(runs, "paper-simulation-report.html", methods = main)
 ```
 
-The fixed-cutoff and MAD arms are reference comparisons for the choice of the
-outlier rule.
+The report uses the same three methods as the main tables, so its common
+subjects match them. The fixed-cutoff and MAD arms are supplementary
+comparisons for the choice of the outlier rule; a report over all five methods
+(`sim_report(runs, "all-methods.html")`) uses a different (usually smaller) set of
+common subjects and should be labelled as such.
