@@ -8,14 +8,19 @@
 #' @param runs An `nmea_sim_runs` object.
 #' @param file Output HTML file.
 #' @param title Report title.
+#' @param methods Methods to include in the recovery tables, figures and paired
+#'   comparisons (default: all). Common subjects are taken over these methods,
+#'   so pass the same set as in your main `eval_summary()` table.
 #' @param full_method Name of the workflow method used for paired comparisons,
 #'   detection and retention.
 #'
 #' @return The path of the report, invisibly.
 #' @export
 sim_report <- function(runs, file = "simulation-report.html",
-                       title = "cortisol.nmea simulation report", full_method = "Full") {
+                       title = "cortisol.nmea simulation report", full_method = "Full",
+                       methods = NULL) {
   .check_runs(runs)
+  if (!is.null(methods)) .check_methods(runs, methods)
   if (!requireNamespace("rmarkdown", quietly = TRUE)) {
     stop("Package `rmarkdown` is required for sim_report().", call. = FALSE)
   }
@@ -28,7 +33,8 @@ sim_report <- function(runs, file = "simulation-report.html",
   runs_file <- file.path(work, "runs.rds")
   saveRDS(runs, runs_file)
   out <- rmarkdown::render(rmd, output_file = basename(file), output_dir = work, quiet = TRUE,
-                           params = list(runs_file = runs_file, title = title, full_method = full_method),
+                           params = list(runs_file = runs_file, title = title, full_method = full_method,
+                                         methods = methods),
                            envir = new.env(parent = globalenv()))
   dir.create(dirname(normalizePath(file, mustWork = FALSE)), recursive = TRUE, showWarnings = FALSE)
   file.copy(out, file, overwrite = TRUE)

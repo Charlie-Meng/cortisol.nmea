@@ -9,6 +9,7 @@ params:
   runs_file: NULL
   title: "cortisol.nmea simulation report"
   full_method: "Full"
+  methods: NULL
 ---
 
 ```{r setup, include = FALSE}
@@ -16,8 +17,9 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width 
 library(cortisol.nmea)
 runs <- readRDS(params$runs_file)
 d <- runs$design
+meth <- if (is.null(params$methods)) names(d$methods) else params$methods
 fmt <- function(x, digits = 3) formatC(x, digits = digits, format = "f")
-has_full <- params$full_method %in% names(d$methods) &&
+has_full <- params$full_method %in% meth &&
   !is.null(runs$cases[[1]]$methods[[params$full_method]]$points)
 ```
 
@@ -28,7 +30,7 @@ cat_rows <- data.frame(
   Item = c("Trimesters", "Subjects per cohort", "Base cohorts per trimester", "Scenarios", "Methods",
            "Evaluation grid"),
   Value = c(paste(d$trimesters, collapse = ", "), d$n, paste(lengths(d$seeds), collapse = " / "),
-            paste(names(d$scenarios), collapse = ", "), paste(names(d$methods), collapse = ", "),
+            paste(names(d$scenarios), collapse = ", "), paste(meth, collapse = ", "),
             sprintf("%s to %s h, %d points", min(d$times), max(d$times), length(d$times))))
 knitr::kable(cat_rows)
 ```
@@ -56,27 +58,30 @@ if (is.null(fail)) {
 Within each cohort, errors are averaged over the subjects available for all methods,
 then averaged over cohorts. Intervals are 95% Monte Carlo t intervals over cohorts;
 the "All" row weights trimesters equally. RMSE is in nmol/L; the curve-AUC error is
-the absolute error of the 0-18 h curve integral in nmol*h/L (not ROC-AUC).
+the absolute error of the 0-18 h curve integral in nmol*h/L (not ROC-AUC). Rows
+marked incomplete lack some planned cohorts because a method failed; they describe
+the valid cohorts only.
 
 ```{r recovery-table}
-s <- eval_summary(runs)$summary
+s <- eval_summary(runs, methods = meth)$summary
 s <- s[s$measure %in% c("rmse", "auc_error"), ]
 s$estimate <- sprintf("%s [%s, %s]", fmt(s$mean), fmt(s$lower), fmt(s$upper))
-tab <- reshape(s[, c("trimester", "scenario", "method", "measure", "valid", "planned", "estimate")],
-               idvar = c("trimester", "scenario", "method", "valid", "planned"), timevar = "measure",
-               direction = "wide")
+s$complete <- ifelse(s$complete, "yes", "no")
+tab <- reshape(s[, c("trimester", "scenario", "method", "measure", "valid", "planned", "complete", "estimate")],
+               idvar = c("trimester", "scenario", "method", "valid", "planned", "complete"),
+               timevar = "measure", direction = "wide")
 tab <- tab[order(match(tab$trimester, c("All", d$trimesters)), tab$scenario, tab$method), ]
 knitr::kable(tab, row.names = FALSE, col.names = c("Trimester", "Scenario", "Method", "Valid cohorts",
-                                                    "Planned", "RMSE", "Curve-AUC error"))
+                                                    "Planned", "Complete", "RMSE", "Curve-AUC error"))
 ```
 
 ```{r recovery-plots, fig.height = 3.4}
-print(plot_recovery(runs, "rmse"))
-print(plot_recovery(runs, "auc_error"))
+print(plot_recovery(runs, "rmse", methods = meth))
+print(plot_recovery(runs, "auc_error", methods = meth))
 ```
 
 ```{r paired, eval = has_full}
-others <- setdiff(names(d$methods), params$full_method)
+others <- setdiff(meth, params$full_method)
 if (!length(others)) {
   cat("Only one method was run; no paired comparison.\n")
 } else {
@@ -94,7 +99,7 @@ if (!length(others)) {
 ## Example cohort
 
 ```{r cohort-curves, fig.height = 3.2}
-print(plot_cohort_curves(runs))
+print(plot_cohort_curves(runs, methods = meth))
 ```
 
 ## Outlier detection and subject retention

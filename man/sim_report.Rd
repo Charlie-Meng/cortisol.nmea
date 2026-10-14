@@ -8,7 +8,8 @@ sim_report(
   runs,
   file = "simulation-report.html",
   title = "cortisol.nmea simulation report",
-  full_method = "Full"
+  full_method = "Full",
+  methods = NULL
 )
 }
 \arguments{
@@ -20,6 +21,10 @@ sim_report(
 
 \item{full_method}{Name of the workflow method used for paired comparisons,
 detection and retention.}
+
+\item{methods}{Methods to include in the recovery tables, figures and paired
+comparisons (default: all). Common subjects are taken over these methods,
+so pass the same set as in your main \code{eval_summary()} table.}
 }
 \value{
 The path of the report, invisibly.

@@ -74,3 +74,8 @@ test_that("the full-method flags in a run equal a direct pipeline call", {
   expect_identical(cs$methods$Full$points$flagged, r$points$flagged)
   expect_equal(cs$methods$Full$curves, predict(r, times = runs$design$times))
 })
+
+test_that("sim_report() checks its method set before rendering", {
+  runs <- readRDS(system.file("extdata", "vignette-runs.rds", package = "cortisol.nmea"))
+  expect_error(sim_report(runs, tempfile(fileext = ".html"), methods = c("Full", "Nope")), "Unknown method")
+})
