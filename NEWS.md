@@ -19,9 +19,12 @@
 * `nmea_pipeline()` runs the configurable workflow (initial fit, outlier
   removal, minimum observations, FVU and `c1 > 0` screening, asymmetry search);
   `nmea_steps()` switches steps on or off and `nmea_steps_direct()` gives the
-  uncleaned fit. Outlier rules: `outlier_fixed()`, `outlier_sd()`,
-  `outlier_custom()`. The default rule is provisionally `outlier_fixed(6)`
-  until the `k x sd` default is chosen.
+  uncleaned fit. Outlier rules: `outlier_default()`, `outlier_fixed()`,
+  `outlier_sd()` (`sd` = number, `"reference"`, `"iterative"`, `"model"`,
+  `"mad"` or a function) and `outlier_custom()`. The default rule uses
+  `3.5 x` the trimester reference noise SD for T1/T2/T3 data and otherwise
+  `3 x` an iterative SD estimate; `outlier_fixed(6)` reproduces the original
+  analysis.
 * `fit_gamm_sanchez()` provides the GAMM comparator adapted from Sánchez et al.
   (2012).
 * Subject identifiers are always matched as identifiers: `predict()` no longer
@@ -46,3 +49,27 @@
   symmetric correlation matrix with unit diagonal; the split of rare
   missingness patterns is a documented uniform assumption instead of an
   estimate from fewer than 20 people.
+
+## Running, evaluating and reporting studies
+
+* `sim_design()` and `sim_run()` run complete studies (trimesters x seeds x
+  scenarios x methods) with optional on-disk caching for resuming and optional
+  parallel execution; failures are recorded, never replaced.
+  `method_nmea()`, `method_gamm()`, `default_methods()` and
+  `methods_threshold_grid()` specify the compared methods.
+* `eval_subjects()`, `eval_summary()` (common-subject curve RMSE and curve-AUC
+  error with Monte Carlo intervals), `eval_paired()`, `eval_detection()` and
+  `eval_retention()` summarize results.
+* `tune_threshold()` reports detection trade-offs over `k` without refitting.
+* `plot_cohort_curves()`, `plot_subject()`, `plot_recovery()`,
+  `plot_detection()` and `plot_retention()` reproduce the paper's figure
+  panels; `sim_report()` writes an HTML report.
+* Cross-review of PR #3: cache keys now describe custom rules when the key is
+  computed, including the global variables they read (codetools); rules using
+  `sd = "reference"` take the simulation design's own reference, so fitting and
+  `tune_threshold()` agree; a failing outlier rule (e.g. the iterative refit)
+  becomes a recorded failure instead of stopping `sim_run()`, and its
+  calibration diagnostics are kept; measurements without a removal decision
+  are plotted as "not evaluated"; tuning, cohort plots and the report handle
+  failed or single-method studies; summaries flag incomplete plans
+  (`complete`); evaluation grids are validated.

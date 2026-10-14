@@ -72,13 +72,15 @@ nmea_fit <- function(data, alpha = 1, control = nmea_control()) {
 
   if (!is.null(res$error)) {
     return(structure(list(status = "failure", error = res$error, alpha = alpha, data = dd,
-                          warnings = res$warnings, elapsed = elapsed), class = "nmea_fit"))
+                          warnings = res$warnings, elapsed = elapsed, control = control),
+                     class = "nmea_fit"))
   }
   out <- res$value
   out$status <- "ok"
   out$error <- NULL
   out$warnings <- res$warnings
   out$elapsed <- elapsed
+  out$control <- control
   structure(out, class = "nmea_fit")
 }
 

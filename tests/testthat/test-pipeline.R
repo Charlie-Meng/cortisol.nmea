@@ -26,7 +26,7 @@ test_that("full workflow records flags and subject outcomes", {
                        control = fast_control())
   expect_identical(res$status, "ok")
   expect_equal(nrow(res$points), nrow(co$data))
-  expect_true(all(res$points$flagged == (abs(res$points$initial_residual) > 6)))
+  expect_true(all(res$points$flagged == (abs(res$points$initial_residual) > res$cutoff)))
   expect_setequal(res$subjects$subject[res$subjects$outcome == "retained"], rownames(coef(res)))
   expect_true(all(res$subjects$outcome %in%
                     c("retained", "excluded_min_obs", "excluded_fvu", "excluded_c1")))

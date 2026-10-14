@@ -7,7 +7,7 @@
 \usage{
 nmea_steps(
   initial_alpha = 1,
-  outlier = outlier_fixed(6),
+  outlier = outlier_default(),
   min_obs = 3L,
   fvu_max = 0.5,
   c1_positive = TRUE,
@@ -19,7 +19,7 @@ nmea_steps_direct(alpha_grid = seq(0.8, 1.5, by = 0.1))
 \arguments{
 \item{initial_alpha}{Alpha for the initial and screening fits.}
 
-\item{outlier}{An outlier rule (see \code{\link[=outlier_fixed]{outlier_fixed()}}), a number (treated
+\item{outlier}{An outlier rule (default \code{\link[=outlier_default]{outlier_default()}}; see also \code{\link[=outlier_fixed]{outlier_fixed()}}), a number (treated
 as a fixed cutoff), or \code{NULL} to keep all measurements.}
 
 \item{min_obs}{Minimum number of measurements per subject after outlier

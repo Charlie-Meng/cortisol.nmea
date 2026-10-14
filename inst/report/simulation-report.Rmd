@@ -1,0 +1,135 @@
+---
+title: "`r params$title`"
+date: "`r format(Sys.time(), '%Y-%m-%d %H:%M')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+params:
+  runs_file: NULL
+  title: "cortisol.nmea simulation report"
+  full_method: "Full"
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width = 9, fig.height = 3.6)
+library(cortisol.nmea)
+runs <- readRDS(params$runs_file)
+d <- runs$design
+fmt <- function(x, digits = 3) formatC(x, digits = digits, format = "f")
+has_full <- params$full_method %in% names(d$methods) &&
+  !is.null(runs$cases[[1]]$methods[[params$full_method]]$points)
+```
+
+## Design
+
+```{r design}
+cat_rows <- data.frame(
+  Item = c("Trimesters", "Subjects per cohort", "Base cohorts per trimester", "Scenarios", "Methods",
+           "Evaluation grid"),
+  Value = c(paste(d$trimesters, collapse = ", "), d$n, paste(lengths(d$seeds), collapse = " / "),
+            paste(names(d$scenarios), collapse = ", "), paste(names(d$methods), collapse = ", "),
+            sprintf("%s to %s h, %d points", min(d$times), max(d$times), length(d$times))))
+knitr::kable(cat_rows)
+```
+
+Each seed defines one base cohort per trimester; the scenarios of a seed share its
+subjects, sampling times and clean noise. The GAMM comparator is an adaptation of
+Sánchez et al. (2012), not the original authors' code.
+
+```{r failures}
+fail <- do.call(rbind, lapply(runs$cases, function(cs) {
+  do.call(rbind, lapply(names(cs$methods), function(m) {
+    r <- cs$methods[[m]]
+    if (r$status == "ok") NULL else data.frame(Case = cs$id, Method = m, Error = r$error)
+  }))
+}))
+if (is.null(fail)) {
+  cat("All method fits completed.\n")
+} else {
+  knitr::kable(fail, caption = "Failed fits (kept as failures, never replaced)")
+}
+```
+
+## Curve recovery
+
+Within each cohort, errors are averaged over the subjects available for all methods,
+then averaged over cohorts. Intervals are 95% Monte Carlo t intervals over cohorts;
+the "All" row weights trimesters equally. RMSE is in nmol/L; the curve-AUC error is
+the absolute error of the 0-18 h curve integral in nmol*h/L (not ROC-AUC).
+
+```{r recovery-table}
+s <- eval_summary(runs)$summary
+s <- s[s$measure %in% c("rmse", "auc_error"), ]
+s$estimate <- sprintf("%s [%s, %s]", fmt(s$mean), fmt(s$lower), fmt(s$upper))
+tab <- reshape(s[, c("trimester", "scenario", "method", "measure", "valid", "planned", "estimate")],
+               idvar = c("trimester", "scenario", "method", "valid", "planned"), timevar = "measure",
+               direction = "wide")
+tab <- tab[order(match(tab$trimester, c("All", d$trimesters)), tab$scenario, tab$method), ]
+knitr::kable(tab, row.names = FALSE, col.names = c("Trimester", "Scenario", "Method", "Valid cohorts",
+                                                    "Planned", "RMSE", "Curve-AUC error"))
+```
+
+```{r recovery-plots, fig.height = 3.4}
+print(plot_recovery(runs, "rmse"))
+print(plot_recovery(runs, "auc_error"))
+```
+
+```{r paired, eval = has_full}
+others <- setdiff(names(d$methods), params$full_method)
+if (!length(others)) {
+  cat("Only one method was run; no paired comparison.\n")
+} else {
+  pr <- do.call(rbind, lapply(others, function(o) eval_paired(runs, params$full_method, o)$summary))
+  pooled_label <- if (length(d$trimesters) > 1) "All" else d$trimesters
+  pr <- pr[pr$trimester == pooled_label, ]
+  pr$estimate <- sprintf("%s [%s, %s]", fmt(pr$mean), fmt(pr$lower), fmt(pr$upper))
+  knitr::kable(pr[, c("scenario", "method", "valid", "estimate", "wins")], row.names = FALSE,
+               caption = sprintf("Paired RMSE differences (%s; negative favours the first method)",
+                                 if (pooled_label == "All") "trimesters weighted equally" else pooled_label),
+               col.names = c("Scenario", "Comparison", "Valid cohorts", "Mean difference [95% MC]", "Wins"))
+}
+```
+
+## Example cohort
+
+```{r cohort-curves, fig.height = 3.2}
+print(plot_cohort_curves(runs))
+```
+
+## Outlier detection and subject retention
+
+```{r detection, eval = has_full}
+det <- eval_detection(runs, params$full_method)$summary
+det <- det[det$measure %in% c("FPR", "FNR", "precision", "roc_auc", "cutoff"), ]
+det$value <- sprintf("%s [%s, %s]", fmt(det$mean), fmt(det$lower), fmt(det$upper))
+knitr::kable(reshape(det[, c("trimester", "scenario", "measure", "value")],
+                     idvar = c("trimester", "scenario"), timevar = "measure", direction = "wide"),
+             row.names = FALSE, caption = "Detection by the initial-residual outlier step")
+```
+
+```{r detection-plots, eval = has_full, fig.width = 4.5, fig.height = 3.4}
+contaminated <- setdiff(names(d$scenarios), "D0")
+for (sc in contaminated) {
+  print(plot_detection(runs, params$full_method, sc))
+  print(plot_retention(runs, params$full_method, sc))
+}
+```
+
+```{r retention-table, eval = has_full}
+ret <- eval_retention(runs, params$full_method)$summary
+ret$value <- fmt(ret$mean, 1)
+knitr::kable(reshape(ret[, c("trimester", "scenario", "measure", "value")],
+                     idvar = c("trimester", "scenario"), timevar = "measure", direction = "wide"),
+             row.names = FALSE, caption = "Subjects by workflow outcome (%, mean over cohorts)")
+```
+
+Recovery is evaluated on retained subjects; excluded subjects are not recovered by the
+workflow and are reported here so that lower errors are read together with coverage.
+
+## Session
+
+```{r session}
+cat(sprintf("cortisol.nmea %s, saemix %s, mgcv %s, %s\n", utils::packageVersion("cortisol.nmea"),
+            utils::packageVersion("saemix"), utils::packageVersion("mgcv"), R.version.string))
+```
