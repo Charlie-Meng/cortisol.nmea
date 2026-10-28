@@ -1,79 +1,50 @@
-.f0 <- function(x) exp(-x) / ((1 + exp(-x))^2)
-.F0 <- function(x) 1 / (1 + exp(-x))
-
-#' Area under an NMEA cortisol curve
+#' Interpretable features of NMEA cortisol curves
 #'
-#' Computes the analytic NMEA area under the curve from time 0 to `t_max`.
+#' Computes per-subject curve features from NMEA parameters.
 #'
-#' @param psi Matrix or data frame with columns `mu`, `s`, `c1`, `c0`, `alpha`.
-#' @param t_max Upper integration limit, in hours since waking.
+#' * `AUC`: area under the curve from waking to `tmax` hours (nmol*h/L).
+#' * `EML`: cortisol level at waking, \eqn{f(0)}.
+#' * `PCL`: peak cortisol level \eqn{c_1 / (4s) + c_0}, the curve value at `mu`.
+#' * `AR`: awakening rise `PCL - EML` when the peak occurs after waking
+#'   (`mu > 0`), otherwise 0.
+#' * `DDC`: steepest post-peak decline slope \eqn{-(\sqrt{3}/18) c_1 / s^2}
+#'   (nmol/L per hour).
 #'
-#' @return Numeric vector of AUC values.
+#' The AUC integrates the warped curve piecewise (before and after `mu`), so
+#' it is exact for any peak location, including peaks before waking.
+#'
+#' @param x A parameter matrix (columns `mu`, `s`, `c1`, `c0`, `alpha`), a
+#'   named parameter vector, or a fitted object from [nmea_fit()] or
+#'   [nmea_pipeline()].
+#' @param tmax Upper limit of the AUC integral in hours.
+#'
+#' @return A matrix with one row per subject and columns `AUC`, `EML`, `PCL`,
+#'   `AR`, `DDC`.
 #' @export
-auc_nmea <- function(psi, t_max = 18) {
-  psi <- .as_psi_matrix(psi, require_alpha = TRUE)
-  mu <- psi[, "mu"]
-  s <- psi[, "s"]
-  c0 <- psi[, "c0"]
-  c1 <- psi[, "c1"]
-  alpha <- psi[, "alpha"]
+#' @examples
+#' psi <- rbind(a = c(mu = 0.6, s = 0.75, c1 = 30, c0 = 2.5, alpha = 1.5),
+#'              b = c(mu = -0.3, s = 0.9, c1 = 25, c0 = 2, alpha = 1.5))
+#' nmea_features(psi)
+nmea_features <- function(x, tmax = 18) {
+  .check_scalar_number(tmax, "tmax", lower = 0)
+  psi <- if (inherits(x, c("nmea_fit", "nmea_result"))) stats::coef(x) else x
+  p <- .as_psi_matrix(psi)
+  mu <- p[, "mu"]; s <- p[, "s"]; c1 <- p[, "c1"]; c0 <- p[, "c0"]; alpha <- p[, "alpha"]
 
-  out <- c1 / alpha *
-    ((1 - alpha) / 2 + alpha * .F0((t_max - mu) / s) - .F0(-alpha * mu / s)) +
-    c0 * t_max
-  names(out) <- rownames(psi)
-  out
-}
-
-#' Estimated morning level from NMEA parameters
-#'
-#' @param psi Matrix or data frame with columns `mu`, `s`, `c1`, `c0`, `alpha`.
-#'
-#' @return Numeric vector of estimated morning level values.
-#' @export
-eml_nmea <- function(psi) {
-  psi <- .as_psi_matrix(psi, require_alpha = TRUE)
-  mu <- psi[, "mu"]
-  s <- psi[, "s"]
-  c0 <- psi[, "c0"]
-  c1 <- psi[, "c1"]
-  alpha <- psi[, "alpha"]
-
-  f0vec <- .f0(-alpha * mu / s)
-  idx <- which(mu <= 0)
-  f0vec[idx] <- .f0(-mu[idx] / s[idx])
-  out <- c1 * f0vec / s + c0
-  names(out) <- rownames(psi)
-  out
-}
-
-#' Derived NMEA cortisol summary features
-#'
-#' Computes the current package-level feature set used in the cortisol NMEA
-#' workflow: AUC, EML, PCL, AR, and DDC.
-#'
-#' @param psi Matrix or data frame with columns `mu`, `s`, `c1`, `c0`, `alpha`.
-#' @param t_max Upper integration limit for AUC.
-#'
-#' @return A data frame with one row per subject.
-#' @export
-summary_features <- function(psi, t_max = 18) {
-  psi <- .as_psi_matrix(psi, require_alpha = TRUE)
-  mu <- psi[, "mu"]
-  s <- psi[, "s"]
-  c0 <- psi[, "c0"]
-  c1 <- psi[, "c1"]
-
-  eml <- eml_nmea(psi)
+  # Warped part on [0, m] and unwarped part on [m, tmax], with m = mu clipped to [0, tmax].
+  m <- pmin(pmax(mu, 0), tmax)
+  warped <- c1 / alpha * (stats::plogis(alpha * (m - mu) / s) - stats::plogis(-alpha * mu / s))
+  unwarped <- c1 * (stats::plogis((tmax - mu) / s) - stats::plogis((m - mu) / s))
+  z0 <- ifelse(mu <= 0, -mu / s, -alpha * mu / s)
+  eml <- c1 * stats::dlogis(z0) / s + c0
   pcl <- c1 / (4 * s) + c0
-  out <- data.frame(
-    Subject = rownames(psi),
-    AUC = as.numeric(auc_nmea(psi, t_max = t_max)),
-    EML = as.numeric(eml),
-    PCL = as.numeric(pcl),
-    AR = as.numeric((pcl - eml) * (mu > 0)),
-    DDC = as.numeric((-sqrt(3) / 18) * c1 / s^2),
-    row.names = NULL
+  out <- cbind(
+    AUC = warped + unwarped + c0 * tmax,
+    EML = eml,
+    PCL = pcl,
+    AR = (pcl - eml) * (mu > 0),
+    DDC = (-sqrt(3) / 18) * c1 / s^2
   )
+  rownames(out) <- rownames(p)
   out
 }

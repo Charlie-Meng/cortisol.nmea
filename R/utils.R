@@ -1,59 +1,71 @@
-.psi_columns <- c("mu", "s", "c1", "c0", "alpha")
+# Internal helpers shared across the package.
 
-.as_psi_matrix <- function(psi, require_alpha = TRUE) {
-  if (is.null(psi)) {
-    stop("`psi` must not be NULL.", call. = FALSE)
-  }
-
-  if (is.vector(psi) && !is.list(psi)) {
-    psi_names <- names(psi)
-    psi <- matrix(psi, nrow = 1)
-    if (!is.null(psi_names)) {
-      colnames(psi) <- psi_names
+# Evaluate `expr` without leaving a changed global RNG state behind.
+# saemix seeds the global RNG internally; users' streams should not be altered.
+.with_preserved_rng <- function(expr) {
+  env <- globalenv()
+  had_seed <- exists(".Random.seed", envir = env, inherits = FALSE)
+  if (had_seed) old_seed <- get(".Random.seed", envir = env, inherits = FALSE)
+  on.exit({
+    if (had_seed) {
+      assign(".Random.seed", old_seed, envir = env)
+    } else if (exists(".Random.seed", envir = env, inherits = FALSE)) {
+      rm(".Random.seed", envir = env)
     }
-  }
-
-  psi <- as.matrix(psi)
-
-  needed <- if (require_alpha) .psi_columns else .psi_columns[1:4]
-  if (!all(needed %in% colnames(psi))) {
-    stop(
-      "`psi` must contain columns: ",
-      paste(needed, collapse = ", "),
-      call. = FALSE
-    )
-  }
-
-  psi[, needed, drop = FALSE]
+  }, add = TRUE)
+  expr
 }
 
-.make_positive_definite <- function(sigma, eps = 1e-6) {
-  sigma <- as.matrix(sigma)
-  sigma <- (sigma + t(sigma)) / 2
-  eig <- eigen(sigma, symmetric = TRUE)
-  values <- pmax(eig$values, eps)
-  out <- eig$vectors %*% diag(values, nrow = length(values)) %*% t(eig$vectors)
-  out <- (out + t(out)) / 2
-  colnames(out) <- colnames(sigma)
-  rownames(out) <- rownames(sigma)
+# Evaluate `expr`, discarding console output when `quiet` is TRUE.
+.maybe_quiet <- function(expr, quiet = TRUE) {
+  if (!isTRUE(quiet)) return(expr)
+  out <- NULL
+  # saemix also reports internal try() failures on stderr; capture both streams.
+  utils::capture.output(utils::capture.output(out <- suppressMessages(expr), type = "message"))
   out
 }
 
-.trapz <- function(y, x) {
-  if (length(y) != length(x)) {
-    stop("`y` and `x` must have the same length.", call. = FALSE)
+# Evaluate `expr`, collecting (and muffling) warnings and catching errors.
+# Returns list(value, warnings, error).
+.collect_conditions <- function(expr) {
+  warnings <- character()
+  value <- tryCatch(
+    withCallingHandlers(expr, warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }),
+    error = function(e) structure(conditionMessage(e), class = ".cn_error")
+  )
+  if (inherits(value, ".cn_error")) {
+    return(list(value = NULL, warnings = unique(warnings), error = unclass(value)))
   }
-  sum((y[-length(y)] + y[-1]) / 2 * diff(x))
+  list(value = value, warnings = unique(warnings), error = NULL)
 }
 
-.ensure_min_keep <- function(keep, min_keep = 3) {
-  keep <- as.logical(keep)
-  if (sum(keep, na.rm = TRUE) >= min_keep) return(keep)
-
-  candidates <- which(!keep)
-  need <- min(min_keep - sum(keep, na.rm = TRUE), length(candidates))
-  if (need > 0) {
-    keep[sample(candidates, size = need)] <- TRUE
+.check_scalar_number <- function(x, name, lower = -Inf, upper = Inf) {
+  if (!is.numeric(x) || length(x) != 1L || !is.finite(x) || x < lower || x > upper) {
+    stop(sprintf("`%s` must be a single finite number in [%s, %s].", name, lower, upper),
+         call. = FALSE)
   }
-  keep
+  invisible(x)
+}
+
+.psi_names <- c("mu", "s", "c1", "c0", "alpha")
+
+# Coerce parameters to a numeric matrix with columns mu, s, c1, c0, alpha.
+.as_psi_matrix <- function(psi) {
+  if (is.null(dim(psi))) {
+    if (is.null(names(psi)) || !all(.psi_names %in% names(psi))) {
+      stop("`psi` must be named with mu, s, c1, c0 and alpha.", call. = FALSE)
+    }
+    psi <- matrix(psi[.psi_names], nrow = 1, dimnames = list(NULL, .psi_names))
+  } else {
+    psi <- as.matrix(psi)
+    if (is.null(colnames(psi)) || !all(.psi_names %in% colnames(psi))) {
+      stop("`psi` must have columns mu, s, c1, c0 and alpha.", call. = FALSE)
+    }
+    psi <- psi[, .psi_names, drop = FALSE]
+  }
+  storage.mode(psi) <- "double"
+  psi
 }
