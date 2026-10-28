@@ -1,8 +1,14 @@
-# cortisol.nmea 0.0.0.9000
+# cortisol.nmea 0.1.0
+
+First release.
 
 * Complete rewrite of the package around the final NMEA simulation workflow.
-  The earlier 0.0.0.9000 prototype (May 2026) is preserved in the `master`
-  branch history and is not compatible with this version.
+  The earlier 0.0.0.9000 prototype (May 2026) remains in the repository
+  history and is not compatible with this version.
+* The paper's simulation (`vignette("paper-simulation")`) was run with the
+  development version at commit 92609ba. This release gives identical results
+  for it: rerunning six of its 90 data sets with all five methods reproduced
+  every curve, flag and outcome exactly.
 
 ## Method layer
 

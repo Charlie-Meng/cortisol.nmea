@@ -11,10 +11,11 @@ vignette: >
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
 ```
 
-This vignette lists the proposed design of the simulation study for the paper.
-It will be updated with the final design and results once the study has been
-run. The code is not run when the vignette is built; the full study takes
-about two hours on three cores.
+This vignette gives the design of the simulation study in the paper, the code
+that runs it, and its main results. The code is not run when the vignette is
+built: the study takes about 80 minutes on six cores. The results below were
+produced with the development version that became 0.1.0; version 0.1.0
+reproduces them exactly.
 
 ```{r setup}
 library(cortisol.nmea)
@@ -22,10 +23,16 @@ library(cortisol.nmea)
 
 ## Design
 
-Each trimester has ten independent cohorts of 100 people. Every cohort is
-analysed without contamination (D0), with mild contamination (D1: 5% of
-samples raised by 4-8 noise SDs) and with strong contamination (D2: 10% raised
-by 8-12 noise SDs).
+Each trimester has ten independent cohorts of 100 people, generated from the
+package's built-in references. Every cohort is analysed without contamination
+(D0), with mild contamination (D1: 5% of samples raised by 4-8 noise SDs) and
+with strong contamination (D2: 10% raised by 8-12 noise SDs). The three
+scenarios of a cohort share its people, sampling times and clean noise.
+
+Five methods are fitted. Direct NMEA, Full NMEA (the default workflow) and the
+GAMM comparator are the main comparison. Full NMEA with the original fixed
+cutoff of 6 nmol/L and with a MAD-based cutoff are supplementary arms for the
+choice of the outlier rule.
 
 ```{r design}
 ctrl <- nmea_control()   # 300 + 100 SAEM iterations, seed 632545
@@ -46,14 +53,12 @@ design <- sim_design(
 ## Running
 
 ```{r run}
-future::plan(future::multisession, workers = 3)
+future::plan(future::multisession, workers = 6)
 runs <- sim_run(design, cache_dir = "paper-simulation-cache", parallel = TRUE)
 saveRDS(runs, "paper-simulation-runs.rds")
 ```
 
 ## Tables and figures
-
-Curve recovery on the people all compared methods could fit:
 
 ```{r tables}
 main <- c("Direct", "Full", "GAMM")
@@ -61,16 +66,24 @@ eval_summary(runs, methods = main)$summary
 eval_paired(runs, "Full", "Direct")$summary
 eval_paired(runs, "Full", "GAMM")$summary
 eval_paired(runs, "Full", "Full_fixed6")$summary
+eval_paired(runs, "Full", "Full_MAD")$summary
 eval_retention(runs, "Full")$summary
 eval_detection(runs, "Full")$summary
 ```
 
-Figure 1 shows one cohort under the three scenarios and individual examples;
-Figure 2 shows recovery across all cohorts, detection errors and retention.
+Figure 1 shows one third-trimester cohort under the three scenarios and four
+example people. The examples were chosen by rules fixed before the study was
+run: in D2, the first person whose contaminated samples were all removed and no
+clean sample was (S0001), and the first whose detection was incomplete
+(S0002); in D0, the person whose Full NMEA error was closest to the cohort
+median (S0085); and in D2, the first person without contamination who lost a
+clean sample (S0028).
 
 ```{r figures}
 plot_cohort_curves(runs, "T3", seed = 610163001, methods = main)
-plot_subject(runs, "T3_S0013", trimester = "T3", seed = 610163001, scenario = "D2", methods = main)
+for (ex in list(c("T3_S0001", "D2"), c("T3_S0002", "D2"), c("T3_S0085", "D0"), c("T3_S0028", "D2"))) {
+  print(plot_subject(runs, ex[1], trimester = "T3", seed = 610163001, scenario = ex[2], methods = main))
+}
 plot_recovery(runs, "rmse", methods = main)
 plot_recovery(runs, "auc_error", methods = main)
 plot_detection(runs, "Full", "D2")
@@ -79,7 +92,45 @@ sim_report(runs, "paper-simulation-report.html", methods = main)
 ```
 
 The report uses the same three methods as the main tables, so its common
-subjects match them. The fixed-cutoff and MAD arms are supplementary
-comparisons for the choice of the outlier rule; a report over all five methods
-(`sim_report(runs, "all-methods.html")`) uses a different (usually smaller) set of
-common subjects and should be labelled as such.
+subjects match them. A report over all five methods
+(`sim_report(runs, "all-methods.html")`) uses a different (usually smaller) set
+of common subjects and should be labelled as such.
+
+## Results
+
+Of 450 method fits, one failed: the GAMM fit of one second-trimester cohort
+without contamination (a singular matrix). It was kept as a failure. Comparisons
+involving GAMM in D0 therefore use 29 of 30 cohorts and are marked incomplete;
+they describe the valid cohorts only.
+
+Curve RMSE (nmol/L) on the people all three main methods could fit, with 95%
+Monte Carlo intervals; trimesters weighted equally:
+
+| Scenario | Direct | Full | GAMM |
+|---|---|---|---|
+| D0 (29/30) | 0.877 [0.851, 0.904] | 0.896 [0.870, 0.922] | 1.597 [1.561, 1.633] |
+| D1 | 1.212 [1.169, 1.255] | 1.090 [1.051, 1.129] | 1.821 [1.781, 1.862] |
+| D2 | 2.374 [2.264, 2.485] | 1.342 [1.276, 1.408] | 2.397 [2.311, 2.482] |
+
+Paired differences, Full minus comparator, on the people both methods could
+fit (negative favours Full):
+
+| Comparison | D0 | D1 | D2 |
+|---|---|---|---|
+| Full - Direct | +0.018 [-0.010, 0.046] | -0.122 [-0.181, -0.063] | -1.032 [-1.169, -0.896] |
+| Full - GAMM | -0.701 [-0.739, -0.663] | -0.731 [-0.779, -0.683] | -1.055 [-1.159, -0.950] |
+
+Without contamination the two NMEA fits are equivalent. With contamination the
+full workflow recovers curves better, and under strong contamination it was
+better than both comparators in all 30 cohorts. These errors are for retained
+people: under strong contamination Full NMEA kept 93.1%, 89.8% and 88.3% of
+people in the three trimesters.
+
+Against the fixed cutoff of 6 nmol/L, the default rule gave the same accuracy
+(D2 RMSE difference +0.010 [-0.030, 0.050]; D1 +0.021 [0.005, 0.038]) but more
+even detection across trimesters: under strong contamination it removed 5.7%,
+4.5% and 5.1% of clean samples, against 1.9%, 5.3% and 9.3%, and kept 4.4
+percentage points more people in the third trimester. The MAD-based cutoff
+removed 2.6-5.2% of clean samples without contamination, with larger curve
+errors (D0 RMSE difference -0.051 [-0.077, -0.025] in favour of the default),
+and no gain under contamination.
