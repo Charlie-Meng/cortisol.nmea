@@ -47,9 +47,9 @@ fail <- do.call(rbind, lapply(runs$cases, function(cs) {
   }))
 }))
 if (is.null(fail)) {
-  cat("All method fits completed.\n")
+  cat("All fits of all methods run in the study completed.\n")
 } else {
-  knitr::kable(fail, caption = "Failed fits (kept as failures, never replaced)")
+  knitr::kable(fail, caption = "Failed fits of all methods run in the study, including any not shown in the tables below (kept as failures, never replaced)")
 }
 ```
 

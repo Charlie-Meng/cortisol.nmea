@@ -136,10 +136,12 @@ nmea_pipeline <- function(data, steps = nmea_steps(), control = nmea_control(),
     idx <- match(result$points$point_id, first$data$point_id)
     result$points$initial_residual <- first$residual[idx]
     rule <- tryCatch(.apply_outlier_rule(steps$outlier, first),
-                     error = function(e) structure(conditionMessage(e), class = "rule_error"))
+                     error = function(e) structure(conditionMessage(e), class = "rule_error",
+                                                   diagnostics = e$diagnostics))
     if (inherits(rule, "rule_error")) {
       result$points$flagged <- NA   # no removal decision was made
-      return(finish(result, paste("Outlier rule failed:", unclass(rule))))
+      result$stages$rule <- attr(rule, "diagnostics")
+      return(finish(result, paste("Outlier rule failed:", as.character(rule))))
     }
     result$stages$rule <- rule$diagnostics
     result$points$flagged <- rule$flag[idx]

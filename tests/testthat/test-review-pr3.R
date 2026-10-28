@@ -5,16 +5,45 @@ one_design <- function(methods, references = list(), scenarios = "D2", n = 20) {
              methods = methods, references = references)
 }
 
-test_that("cache keys follow variables a custom rule reads at run time", {
-  env <- new.env()
-  env$cut_val <- 3
-  rule_fun <- local(function(fit) abs(fit$residual) > cut_val, envir = env)
-  d <- one_design(list(A = method_nmea(nmea_steps(outlier = outlier_custom(rule_fun)))))
-  k3 <- .design_key(d)
-  env$cut_val <- 9                      # changed after the design was built
-  expect_false(identical(.design_key(d), k3))
-  env$cut_val <- 3
-  expect_identical(.design_key(d), k3)
+test_that("a custom rule without key is never served from the cache (fix review 2026-10-28)", {
+  skip_on_cran()
+  cfg <- new.env()
+  cfg$cutoff <- 3
+  rule <- outlier_custom(function(fit) abs(fit$residual) > cfg$cutoff)
+  d <- one_design(list(A = method_nmea(nmea_steps(outlier = rule, alpha_grid = 1), fast_control())))
+  cache <- withr::local_tempdir()
+  expect_warning(r3 <- sim_run(d, cache_dir = cache, verbose = FALSE), "Caching is off")
+  expect_length(list.files(cache), 0)
+  cfg$cutoff <- 9
+  expect_warning(r9 <- sim_run(d, cache_dir = cache, verbose = FALSE), "Caching is off")
+  fresh <- suppressWarnings(sim_run(d, verbose = FALSE))
+  expect_identical(r9$cases[[1]]$methods$A$points$flagged, fresh$cases[[1]]$methods$A$points$flagged)
+  expect_lt(sum(r9$cases[[1]]$methods$A$points$flagged), sum(r3$cases[[1]]$methods$A$points$flagged))
+})
+
+test_that("a failed iterative refit keeps its diagnostics (fix review 2026-10-28)", {
+  skip_on_cran()
+  sim <- sim_contaminate(sim_cohort(sim_reference("T2"), n = 20, seed = 7), "D2")
+  d <- sim$observed
+  d$trimester <- NULL                    # unlabelled data -> iterative SD
+  real_fit <- nmea_fit
+  calls <- 0
+  local_mocked_bindings(nmea_fit = function(...) {
+    calls <<- calls + 1
+    if (calls == 2) {                    # the iterative SD refit
+      return(structure(list(status = "failure", error = "injected", warnings = "w1",
+                            elapsed = 1.5), class = "nmea_fit"))
+    }
+    real_fit(...)
+  })
+  res <- nmea_pipeline(d, steps = nmea_steps(alpha_grid = 1), control = fast_control())
+  expect_identical(res$status, "failure")
+  expect_match(res$error, "iterative SD refit failed: injected")
+  expect_true(all(is.na(res$points$flagged)))
+  expect_identical(res$stages$rule$status, "failure")
+  expect_identical(res$stages$rule$warnings, "w1")
+  expect_equal(res$stages$rule$elapsed, 1.5)
+  expect_true(res$stages$rule$n_kept > 0)
 })
 
 test_that("a design's own reference is used both for fitting and for tuning", {

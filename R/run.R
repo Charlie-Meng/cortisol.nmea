@@ -81,7 +81,11 @@ print.nmea_sim_design <- function(x, ...) {
 #'
 #' With `cache_dir`, each data set's results are saved as they finish and
 #' reused when the same design is run again, so interrupted studies resume.
-#' Cache entries are keyed by the design, the case and the package version.
+#' Cache entries are keyed by the design, the case, the package code and the
+#' saemix and mgcv versions. A rule built on your own function is cached only
+#' if you give it a `key` (see [outlier_custom()]); otherwise caching is
+#' switched off for the whole run, with a warning, because the package cannot
+#' tell when such a function changes.
 #'
 #' @param design An `nmea_sim_design`.
 #' @param cache_dir Optional directory for per-case results.
@@ -98,6 +102,16 @@ sim_run <- function(design, cache_dir = NULL, parallel = FALSE, verbose = TRUE) 
   jobs <- do.call(rbind, lapply(design$trimesters, function(t) {
     data.frame(trimester = t, seed = design$seeds[[t]], stringsAsFactors = FALSE)
   }))
+  if (!is.null(cache_dir)) {
+    uncached <- names(design$methods)[!vapply(design$methods, function(m) {
+      m$type != "nmea" || .rule_cacheable(m$steps$outlier)
+    }, logical(1))]
+    if (length(uncached)) {
+      warning("Caching is off: method(s) ", paste(uncached, collapse = ", "),
+              " use a rule built on your own function without `key`.", call. = FALSE)
+      cache_dir <- NULL
+    }
+  }
   if (!is.null(cache_dir)) dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
   key <- .design_key(design)
   run_job <- function(i) {
@@ -165,7 +179,7 @@ sim_run <- function(design, cache_dir = NULL, parallel = FALSE, verbose = TRUE) 
   method_sig <- lapply(design$methods, function(m) {
     if (m$type == "gamm") return(list("gamm", m$k))
     s <- m$steps
-    list("nmea", if (is.null(s$outlier)) NULL else .spec_plain(s$outlier$spec), s$initial_alpha, s$min_obs,
+    list("nmea", if (is.null(s$outlier)) NULL else s$outlier$spec, s$initial_alpha, s$min_obs,
          s$fvu_max, s$c1_positive, s$alpha_grid, unclass(m$control))
   })
   saveRDS(list(design$n, lapply(design$scenarios, unclass), method_sig, design$times,

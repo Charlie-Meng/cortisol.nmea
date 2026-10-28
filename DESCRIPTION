@@ -1,6 +1,6 @@
 Package: cortisol.nmea
 Title: Nonlinear Mixed-Effects Modeling and Simulation of Diurnal Cortisol Curves
-Version: 0.0.0.9000
+Version: 0.1.0
 Authors@R: c(
     person("Yuntian", "Meng", email = "yuntian7103@gmail.com", role = c("aut", "cre", "cph")),
     person("Yu", "Gu", role = c("aut", "cph")),
@@ -21,7 +21,6 @@ BugReports: https://github.com/Charlie-Meng/cortisol.nmea/issues
 Depends:
     R (>= 4.1.0)
 Imports:
-    codetools,
     ggplot2 (>= 3.4.0),
     mgcv,
     nlme,

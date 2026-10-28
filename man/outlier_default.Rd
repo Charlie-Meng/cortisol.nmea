@@ -11,9 +11,9 @@ outlier_default(reference = NULL)
 
 outlier_fixed(cutoff = 6)
 
-outlier_sd(k = 3.5, sd, reference = NULL)
+outlier_sd(k = 3.5, sd, reference = NULL, key = NULL)
 
-outlier_custom(fun)
+outlier_custom(fun, key = NULL)
 }
 \arguments{
 \item{reference}{For \code{sd = "reference"}: \code{NULL} (built-in reference chosen
@@ -24,6 +24,12 @@ by the trimester label), an \code{nmea_reference}, or a noise SD in nmol/L.}
 \item{k}{Positive multiplier.}
 
 \item{sd}{Noise scale; see Details.}
+
+\item{key}{For rules built on your own function (\code{outlier_custom()}, or
+\code{outlier_sd()} with a function \code{sd}): a string identifying the function's
+behaviour, used by \code{\link[=sim_run]{sim_run()}} to cache results. Change it whenever the
+function or anything it reads changes. Without a key, results of such
+rules are not cached.}
 
 \item{fun}{Function taking an \code{nmea_fit} and returning a logical vector.}
 }
