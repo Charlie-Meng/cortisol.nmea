@@ -18,19 +18,23 @@ test_that("nmea_steps() defaults to outlier_default()", {
   expect_identical(nmea_steps()$outlier$spec$type, "default")
 })
 
-test_that("closures with different captured values get different cache keys", {
-  make_rule <- function(cutoff) outlier_custom(function(fit) abs(fit$residual) > cutoff)
-  d3 <- sim_design(trimesters = "T2", seeds = 1, scenarios = "D0",
-                   methods = list(A = method_nmea(nmea_steps(outlier = make_rule(3)))))
-  d9 <- sim_design(trimesters = "T2", seeds = 1, scenarios = "D0",
-                   methods = list(A = method_nmea(nmea_steps(outlier = make_rule(9)))))
-  expect_false(identical(.design_key(d3), .design_key(d9)))
-  sd_rule <- function(v) outlier_sd(3, function(fit) v)
-  e1 <- sim_design(trimesters = "T2", seeds = 1, scenarios = "D0",
-                   methods = list(A = method_nmea(nmea_steps(outlier = sd_rule(1)))))
-  e2 <- sim_design(trimesters = "T2", seeds = 1, scenarios = "D0",
-                   methods = list(A = method_nmea(nmea_steps(outlier = sd_rule(2)))))
-  expect_false(identical(.design_key(e1), .design_key(e2)))
+test_that("rules built on user functions are cacheable only with a key", {
+  f <- function(fit) abs(fit$residual) > 3
+  expect_false(.rule_cacheable(outlier_custom(f)))
+  expect_true(.rule_cacheable(outlier_custom(f, key = "cut3")))
+  expect_false(.rule_cacheable(outlier_sd(3, function(fit) 1)))
+  expect_true(.rule_cacheable(outlier_sd(3, function(fit) 1, key = "sd1")))
+  for (r in list(outlier_default(), outlier_fixed(6), outlier_sd(3.5, "reference"),
+                 outlier_sd(3, "iterative"), outlier_sd(2.75, "mad"), NULL)) {
+    expect_true(.rule_cacheable(r))
+  }
+  expect_error(outlier_custom(f, key = ""), "key")
+  design_with <- function(key) {
+    sim_design(trimesters = "T2", seeds = 1, scenarios = "D0",
+               methods = list(A = method_nmea(nmea_steps(outlier = outlier_custom(f, key = key)))))
+  }
+  expect_false(identical(.design_key(design_with("a")), .design_key(design_with("b"))))
+  expect_identical(.design_key(design_with("a")), .design_key(design_with("a")))
 })
 
 test_that("a seed vector gives independent trimester-specific seeds", {

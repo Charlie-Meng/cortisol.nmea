@@ -30,5 +30,9 @@ recorded, never replaced.
 \details{
 With \code{cache_dir}, each data set's results are saved as they finish and
 reused when the same design is run again, so interrupted studies resume.
-Cache entries are keyed by the design, the case and the package version.
+Cache entries are keyed by the design, the case, the package code and the
+saemix and mgcv versions. A rule built on your own function is cached only
+if you give it a \code{key} (see \code{\link[=outlier_custom]{outlier_custom()}}); otherwise caching is
+switched off for the whole run, with a warning, because the package cannot
+tell when such a function changes.
 }

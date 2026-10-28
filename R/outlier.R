@@ -39,6 +39,11 @@
 #' @param reference For `sd = "reference"`: `NULL` (built-in reference chosen
 #'   by the trimester label), an `nmea_reference`, or a noise SD in nmol/L.
 #' @param fun Function taking an `nmea_fit` and returning a logical vector.
+#' @param key For rules built on your own function (`outlier_custom()`, or
+#'   `outlier_sd()` with a function `sd`): a string identifying the function's
+#'   behaviour, used by [sim_run()] to cache results. Change it whenever the
+#'   function or anything it reads changes. Without a key, results of such
+#'   rules are not cached.
 #'
 #' @return An object of class `nmea_outlier_rule`.
 #' @export
@@ -73,9 +78,10 @@ outlier_fixed <- function(cutoff = 6) {
 
 #' @rdname outlier_default
 #' @export
-outlier_sd <- function(k = 3.5, sd, reference = NULL) {
+outlier_sd <- function(k = 3.5, sd, reference = NULL, key = NULL) {
   .check_scalar_number(k, "k", lower = 0)
   if (missing(sd)) stop("`sd` must be supplied.", call. = FALSE)
+  .check_key(key)
   ref_sd <- .reference_value(reference)
   sd_fun <- if (is.function(sd)) {
     sd
@@ -93,11 +99,11 @@ outlier_sd <- function(k = 3.5, sd, reference = NULL) {
     function(fit) sd
   }
   sd_label <- if (is.function(sd)) "function" else format(sd)
+  # The spec is plain data. A user function is represented only by its `key`.
   structure(list(
     label = sprintf("|residual| > %s x sd (sd = %s)", format(k), sd_label),
-    # Functions are kept as they are and described when the cache key is
-    # computed, so later changes to the variables they use are seen.
-    spec = list(type = "sd", k = k, sd = sd, reference = ref_sd),
+    spec = list(type = "sd", k = k, sd = if (is.function(sd)) "function" else sd,
+                reference = ref_sd, user_function = is.function(sd), key = key),
     cutoff_fun = function(fit) {
       value <- sd_fun(fit)
       .check_scalar_number(as.numeric(value), "sd", lower = 0)
@@ -108,10 +114,25 @@ outlier_sd <- function(k = 3.5, sd, reference = NULL) {
 
 #' @rdname outlier_default
 #' @export
-outlier_custom <- function(fun) {
+outlier_custom <- function(fun, key = NULL) {
   if (!is.function(fun)) stop("`fun` must be a function.", call. = FALSE)
-  structure(list(label = "custom rule", spec = list(type = "custom", fun = fun),
+  .check_key(key)
+  structure(list(label = "custom rule",
+                 spec = list(type = "custom", user_function = TRUE, key = key),
                  flag_fun = fun), class = "nmea_outlier_rule")
+}
+
+.check_key <- function(key) {
+  if (!is.null(key) && (!is.character(key) || length(key) != 1L || is.na(key) || !nzchar(key))) {
+    stop("`key` must be NULL or a non-empty character string.", call. = FALSE)
+  }
+  invisible(key)
+}
+
+# A rule can be cached only if its spec describes it completely: built-in rules
+# always, user functions only when the caller supplies a `key`.
+.rule_cacheable <- function(rule) {
+  is.null(rule) || is.numeric(rule) || !isTRUE(rule$spec$user_function) || !is.null(rule$spec$key)
 }
 
 #' @export
@@ -147,7 +168,10 @@ print.nmea_outlier_rule <- function(x, ...) {
                       fim_ok = if (refit$status == "ok") refit$fim_ok else NA,
                       warnings = refit$warnings, elapsed = refit$elapsed, n_kept = sum(keep))
   if (refit$status != "ok") {
-    stop("The iterative SD refit failed: ", refit$error, call. = FALSE)
+    # Carry the diagnostics with the error so the workflow can keep them.
+    stop(structure(class = c("nmea_rule_error", "error", "condition"),
+                   list(message = paste("The iterative SD refit failed:", refit$error),
+                        call = NULL, diagnostics = diagnostics)))
   }
   structure(refit$sigma, diagnostics = diagnostics)
 }
@@ -161,42 +185,6 @@ print.nmea_outlier_rule <- function(x, ...) {
     return(outlier_sd(rule$spec$k, "reference", reference = reference))
   }
   rule
-}
-
-# Plain-data description of a function for cache keys: its source and the
-# current values of every variable it uses that is not in a package, found
-# in its enclosing environments (including the global environment).
-.function_signature <- function(fun, depth = 3L) {
-  if (is.primitive(fun)) return(list(primitive = deparse(fun)))
-  env <- environment(fun)
-  used <- unique(unlist(codetools::findGlobals(fun, merge = FALSE)))
-  local <- if (!is.null(env) && !identical(env, globalenv()) && !isNamespace(env)) {
-    ls(env, all.names = TRUE)
-  } else {
-    character()
-  }
-  captured <- list()
-  if (!is.null(env) && !isNamespace(env)) {
-    for (v in sort(unique(c(used, local)))) {
-      if (!exists(v, envir = env)) next
-      obj <- get(v, envir = env)
-      if (is.function(obj)) {
-        fenv <- environment(obj)
-        if (is.primitive(obj) || is.null(fenv) || isNamespace(fenv) || identical(fenv, baseenv())) next
-        captured[[v]] <- if (depth > 0) .function_signature(obj, depth - 1L) else deparse(obj)
-      } else if (!is.environment(obj)) {
-        captured[[v]] <- obj
-      }
-    }
-  }
-  list(body = deparse(fun), captured = captured)
-}
-
-# Replace functions inside a spec by their signatures.
-.spec_plain <- function(x) {
-  if (is.function(x)) return(.function_signature(x))
-  if (is.list(x)) return(lapply(x, .spec_plain))
-  x
 }
 
 # Apply a rule to an initial fit; returns list(flag, cutoff, diagnostics).

@@ -64,15 +64,17 @@
 * `plot_cohort_curves()`, `plot_subject()`, `plot_recovery()`,
   `plot_detection()` and `plot_retention()` reproduce the paper's figure
   panels; `sim_report()` writes an HTML report.
-* Cross-review of PR #3: cache keys now describe custom rules when the key is
-  computed, including the global variables they read (codetools); rules using
+* Cross-review of PR #3 and of its fixes: rules built on a user function are
+  cached only when given a `key` (`outlier_custom(fun, key = ...)`,
+  `outlier_sd(k, fun, key = ...)`); without one, `sim_run()` switches caching
+  off with a warning. Built-in rules are always cached. Rules using
   `sd = "reference"` take the simulation design's own reference, so fitting and
   `tune_threshold()` agree; a failing outlier rule (e.g. the iterative refit)
-  becomes a recorded failure instead of stopping `sim_run()`, and its
-  calibration diagnostics are kept; measurements without a removal decision
-  are plotted as "not evaluated"; tuning, cohort plots and the report handle
-  failed or single-method studies; summaries flag incomplete plans
-  (`complete`); evaluation grids are validated.
+  becomes a recorded failure instead of stopping `sim_run()`, with its
+  calibration diagnostics kept on both success and failure; measurements
+  without a removal decision are plotted as "not evaluated"; tuning, cohort
+  plots and the report handle failed or single-method studies; summaries flag
+  incomplete plans (`complete`); evaluation grids are validated.
 
 ## Documentation
 
